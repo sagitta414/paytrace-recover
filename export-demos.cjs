@@ -3,7 +3,11 @@ const python='C:/Users/Jeffl/.cache/codex-runtimes/codex-primary-runtime/depende
 const renderer='C:/Users/Jeffl/.codex/plugins/cache/openai-bundled/visualize/1.0.46/skills/visualize/scripts/render.py';
 for(const name of ['recover','agents']){
  const out=path.join(__dirname,'dist',name+'.html');
- execFileSync(python,[renderer,path.join(__dirname,'source',name+'-fragment.html'),out,'--force'],{stdio:'pipe'});
+ const fragment=fs.readFileSync(path.join(__dirname,'source',name+'-fragment.html'),'utf8');
+ const portrait='data:image/webp;base64,'+fs.readFileSync(path.join(__dirname,'dist/assets/crew-portraits.webp')).toString('base64');
+ const temporary=path.join(__dirname,'.openai',name+'-export.tmp.html');
+ fs.writeFileSync(temporary,fragment.replaceAll('assets/crew-portraits.png',portrait));
+ try{execFileSync(python,[renderer,temporary,out,'--force'],{stdio:'pipe'});}finally{fs.unlinkSync(temporary);}
  let html=fs.readFileSync(out,'utf8');
  const title=name==='recover'?'Recovery workspace':'Agent room';
  html=html.replace(/<title>[^<]*<\/title>/,'<title>'+title+' — PayTrace Recover</title>');

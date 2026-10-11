@@ -1,0 +1,10 @@
+Mode: built-in image_gen. Use case: stylized-concept.
+
+Create ONE square character portrait atlas for a premium fintech website named PayTrace Recover, four friendly fictional AI teammates. A perfectly regular edge-to-edge 2 by 2 grid, exactly equal square quadrants, no borders, no text, no logos. Each quadrant is a separate centered waist-up 3D clay editorial portrait with generous headroom and no overlap across quadrants, identical scale, expressive human faces, soft tactile material, refined modern character art, adults with realistic diverse proportions rather than children.
+
+TOP LEFT: Ledger, calm and dependable Black man around 40, close-cropped dark hair, round cobalt glasses, cobalt blue knitted crewneck, kind thoughtful smile, pale periwinkle background.
+TOP RIGHT: Relay, curious upbeat Asian woman around 30, short dark bob, teal hoodie with headphones resting around neck, slightly raised eyebrow and warm smile, pale aqua background.
+BOTTOM LEFT: Patch, resourceful warm woman around 35 with medium brown skin, wavy dark shoulder-length hair, violet work jacket over cream tee, relaxed confident smile, pale lavender background.
+BOTTOM RIGHT: Prism, reassuring thoughtful man around 45 with warm tan skin, swept salt-and-pepper hair, subtle stubble, amber mustard cardigan and cream shirt, friendly smile, soft peach background.
+
+Subtle cinematic studio lighting, rich fabric texture, soft ambient shadows, polished high-end editorial 3D, instantly relatable trustworthy expressions. Each person looks slightly toward the camera. Composition must be a seamless aligned four-quadrant portrait atlas for CSS background-position crops. No hands in foreground, no floating objects, no UI, no lettering.
