@@ -1,12 +1,14 @@
-# CourseLatch product scope
+# PayTrace Recover product scope
 
-**Promise:** Restore purchased course access, with proof the learner can get in.
+**Promise:** PayTrace Recover helps merchants resolve cases where a customer paid but didn’t receive the digital access they purchased.
 
-**Initial customer hypothesis:** Independent course sellers using PayPal with a custom access or membership system. A payment is recorded, but a failed handoff leaves the learner locked out. The merchant must join payment and entitlement evidence without charging twice or granting the wrong purchase.
+**First demonstration:** A paid course that remains locked. Membership and download recovery are adjacent hypotheses, not implemented features.
+
+**Initial customer hypothesis:** Merchants and operations teams using PayPal with separately managed digital access. Start with course sellers and agencies supporting course or membership sites. A payment is recorded, but a failed handoff leaves the learner locked out. The merchant must join payment and entitlement evidence without charging twice or granting the wrong purchase.
 
 **Distinctive demonstration:** The learner and merchant views share the same case. A proposed correction is rehearsed on a copy. The merchant approves its exact evidence snapshot. Execution is followed by separate payment, entitlement, and protected-resource checks. An ambiguous purchase stops; an incomplete check cannot be called recovered.
 
-This is a focused product hypothesis, not a claim that repair workflows or payment reconciliation are new. The working name replaces PayTrace because that name is already used by a payment company. No trademark clearance or customer validation is claimed.
+This is a focused product hypothesis, not a claim that repair workflows or payment reconciliation are new. PayTrace Recover is the requested working brand. No trademark clearance or customer validation is claimed.
 
 ## Acceptance criteria
 
@@ -19,9 +21,9 @@ This is a focused product hypothesis, not a claim that repair workflows or payme
 7. Every decision has source records and a time-stamped audit event. Downloaded receipts report actual demo state and mode.
 8. Mobile users can complete the same flow; no essential action is hover-only.
 
-## Deliberately limited MVP
+## Current MVP and expansion direction
 
-One course and one repair type: grant the already purchased entitlement. No refund decisions, production money movement, subscriptions, autonomous financial agent, or universal ecommerce dashboard. Render supports the repair sequence. AG Studio is deferred until actual research shows a need for a larger investigation board.
+The broader product concerns paid digital access. The current MVP implements one course and one repair type: grant the already purchased entitlement. No refund decisions, production money movement, subscriptions, autonomous financial agent, or universal ecommerce dashboard. Render supports the repair sequence. AG Studio is deferred until actual research shows a need for a larger investigation board.
 
 ## Validation targets — not measured results
 

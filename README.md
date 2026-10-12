@@ -1,6 +1,8 @@
-# CourseLatch — Paid should mean in.
+# PayTrace Recover — Payment made. Access restored.
 
-A PayPal + AI course-access recovery prototype. Maya paid for a workshop, but the access update failed. CourseLatch checks the evidence, rehearses the smallest correction on a copy, asks the merchant to approve the exact change, applies it once, and checks whether the lesson opens.
+PayTrace Recover helps merchants resolve cases where a customer paid but didn’t receive the digital access they purchased.
+
+The first working example is a paid course with missing access. The app checks the evidence, rehearses the smallest correction on a copy, asks the merchant to approve the exact change, applies it once, and checks the outcome. Memberships and downloads are future directions to validate, not supported connectors.
 
 ## What works today
 
@@ -35,7 +37,7 @@ One fictional merchant, learner, course, and entitlement per session. No product
 
 SQLite persistence and an in-process session lock support a single web-service instance. A production service needs tenant authentication, transactional idempotency with shared storage, webhook signature validation, retention controls, reconciliation jobs, refund/revocation handling, and a real course platform adapter. Approval is specific to the previewed evidence. Verification checks current state, not a permanent guarantee.
 
-CourseLatch is a working name, not a trademark-clearance claim. This is an independent project, not an official PayPal product.
+PayTrace Recover is a working name, not a trademark-clearance claim. This is an independent project, not an official PayPal product.
 
 ## Agent challenge round
 

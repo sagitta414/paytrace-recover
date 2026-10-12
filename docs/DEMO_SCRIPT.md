@@ -1,6 +1,6 @@
 # Three-minute demonstration
 
-**0:00–0:20 — The consequence.** “Maya paid $128 for a workshop. The payment succeeded; access did not. Paid should mean in.” Show the locked learner storefront. Explicitly identify browser simulation or configured sandbox mode.
+**0:00–0:20 — The consequence.** “Maya paid $128 for a workshop. The payment succeeded; access did not. PayTrace Recover connects payment to the digital access the customer purchased.” Show the locked learner storefront. Explicitly identify browser simulation or configured sandbox mode.
 
 **0:20–0:55 — Evidence before action.** Switch to merchant desk; investigate. Expand the specialist consultation and one payment citation. “Ledger matches the purchase. Relay locates the failed handoff but does not invent its underlying cause. Patch proposes one entitlement. Prism checks the gaps.”
 

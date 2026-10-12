@@ -8,7 +8,7 @@ export function paypalClient(env=process.env,fetcher=fetch){
   if(!r.ok)throw Error(`PayPal sandbox request failed (${r.status}). Retry or inspect the sandbox dashboard.`);return r.json();
  }
  return {
-  async create(s){const j=await request('/v2/checkout/orders',{method:'POST',key:'create-'+s.id,body:{intent:'CAPTURE',purchase_units:[{custom_id:s.id,reference_id:s.id,description:'CourseLatch sandbox: Light & Story Workshop',amount:{currency_code:'USD',value:'128.00'}}]}});if(!j.id)throw Error('PayPal did not return an order ID.');return j.id},
+  async create(s){const j=await request('/v2/checkout/orders',{method:'POST',key:'create-'+s.id,body:{intent:'CAPTURE',purchase_units:[{custom_id:s.id,reference_id:s.id,description:'PayTrace Recover sandbox: Light & Story Workshop',amount:{currency_code:'USD',value:'128.00'}}]}});if(!j.id)throw Error('PayPal did not return an order ID.');return j.id},
   async capture(s){if(!s.paypalOrderId)throw Error('Create a sandbox order first.');let order=await request('/v2/checkout/orders/'+encodeURIComponent(s.paypalOrderId));if(order.status!=='COMPLETED')order=await request('/v2/checkout/orders/'+encodeURIComponent(s.paypalOrderId)+'/capture',{method:'POST',key:'capture-'+s.id,body:{}});return normalize(s,order)},
   async refresh(s){const order=await request('/v2/checkout/orders/'+encodeURIComponent(s.paypalOrderId));const c=normalize(s,order);const captured=await request('/v2/payments/captures/'+encodeURIComponent(c.id));if(captured.id!==c.id)throw Error('Capture reference changed.');return {...c,status:captured.status,amount:money(captured.amount?.value),currency:captured.amount?.currency_code}},
  };
