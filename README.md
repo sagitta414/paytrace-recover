@@ -4,9 +4,9 @@ A PayPal + AI course-access recovery prototype. Maya paid for a workshop, but th
 
 ## What works today
 
-- Public static demonstration: fictional records, scripted specialist consultations, three interactive cases, learner storefront, merchant desk, preview, approval, verification, source drilldown, audit trail, JSON recovery receipt.
+- Public static demonstration: fictional records, scripted agent challenge rounds, six interactive cases, learner storefront, merchant desk, preview, approval, verification, source drilldown, audit trail, JSON recovery receipt.
 - Local Node backend: isolated cookie sessions, durable SQLite records, protected lesson-access endpoint, same-origin mutation checks, operator gate for configured integrations, serial per-session writes.
-- Setup-ready adapters: PayPal sandbox order creation/capture/fresh reads; four OpenAI Responses consultations with structured evidence citations; Render investigation and approved-recovery task chains.
+- Setup-ready adapters: PayPal sandbox order creation/capture/fresh reads; six bounded OpenAI Responses calls with cited objections, responses, and final review; Render investigation and approved-recovery task chains.
 - Automated tests cover business invariants and mocked integration contracts. **Live PayPal, OpenAI, and Render credentials were not supplied; those services have not been tested end to end.** The published Sites version is the browser simulation, not the Node service.
 
 ## Run
@@ -36,3 +36,9 @@ One fictional merchant, learner, course, and entitlement per session. No product
 SQLite persistence and an in-process session lock support a single web-service instance. A production service needs tenant authentication, transactional idempotency with shared storage, webhook signature validation, retention controls, reconciliation jobs, refund/revocation handling, and a real course platform adapter. Approval is specific to the previewed evidence. Verification checks current state, not a permanent guarantee.
 
 CourseLatch is a working name, not a trademark-clearance claim. This is an independent project, not an official PayPal product.
+
+## Agent challenge round
+
+The merchant sees a compact decision card before rehearsal. Expand it for categorized objections, one response round, and source records frozen at review time. Outcomes are ready for rehearsal, needs evidence, blocked, or verify only. Existing access is checked with zero repair writes; changed evidence invalidates review and approval. Unknown timeout cause stays visible.
+
+Cases D–F demonstrate missing payment evidence, an earlier store retry restoring access, and a payment reference changing after review. Read [challenge validation](docs/CHALLENGE_ROUND.md) for invariants and the demo sequence.

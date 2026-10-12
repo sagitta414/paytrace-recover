@@ -22,7 +22,7 @@ Reference: [Orders walkthrough](https://developer.paypal.com/checkout/put-it-all
 
 ## 3. AI review
 
-Configure `OPENAI_API_KEY` and `OPENAI_MODEL` with a Responses API model that supports Structured Outputs in your account. No model is silently selected. Restart, unlock the operator session, and investigate a case. The server performs four role-specific calls, passes prior findings to later reviewers, and validates source identifiers against the supplied records. The UI must say **Model-generated findings**. Missing credentials produce explicitly labeled scripted samples.
+Configure `OPENAI_API_KEY` and `OPENAI_MODEL` with a Responses API model that supports Structured Outputs in your account. No model is silently selected. Restart, unlock the operator session, and investigate a case. The server performs six bounded calls: Ledger, Relay, and Patch findings; Prism objections; one evidence response; and Prism’s final resolution of every objection. It validates source IDs, objection IDs, and completeness. The UI must say **AI REVIEW** and **Model-generated review**. Unanswered objections block rehearsal. A failed configured-model review does not fall back to scripted eligibility. Missing credentials produce explicitly labeled scripted samples.
 
 Only the fictional transaction, course, entitlement, log, and prior findings are sent. Requests use `store:false`; provider retention policies still apply. No API tool enables money movement or access writes. An incomplete/invalid response surfaces an error instead of inventing success. Record latency and inspect factual claims against source records before demonstrating.
 
@@ -49,7 +49,7 @@ Reference: [task definitions](https://render.com/docs/workflows-defining), [runn
 ## Live acceptance checklist
 
 - Sandbox checkout completes and creates one capture; learner remains locked.
-- Four model-generated findings contain valid, accurate citations and preserve unknowns.
+- The six-call challenge round contains accurate citations, preserves unknowns, and holds repair when any objection stays open.
 - Render investigation ends before approval; recovery cannot begin without it.
 - Rehearsal changes only a copy. Fresh evidence changes invalidate approval.
 - The correct purchase unlocks one entitlement, fresh verification passes, and the lesson opens.
