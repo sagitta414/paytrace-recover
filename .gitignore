@@ -2,3 +2,7 @@ node_modules/
 .openai/*.tar.gz
 *.log
 qa/
+.env
+.env.*
+!.env.example
+data/

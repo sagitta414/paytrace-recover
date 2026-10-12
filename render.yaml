@@ -1,0 +1,23 @@
+# Optional Node backend. Review hosting costs before provisioning.
+# Render Workflows are configured separately; see docs/SETUP.md.
+services:
+  - type: web
+    name: courselatch
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    disk:
+      name: courselatch-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: DATABASE_PATH
+        value: /var/data/courselatch.sqlite
+      - key: PUBLIC_URL
+        sync: false
+      - key: DEMO_OPERATOR_KEY
+        generateValue: true

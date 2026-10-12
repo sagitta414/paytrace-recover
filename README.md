@@ -1,25 +1,38 @@
-# PayTrace Recover public showcase
+# CourseLatch — Paid should mean in.
 
-Static, responsive showcase with a custom landing page and two interactive, exported concept demos.
+A PayPal + AI course-access recovery prototype. Maya paid for a workshop, but the access update failed. CourseLatch checks the evidence, rehearses the smallest correction on a copy, asks the merchant to approve the exact change, applies it once, and checks whether the lesson opens.
 
-All customer records, specialist consultations, corrections, and verification reads are simulated. This site does not call PayPal, Render, a merchant backend, or an AI model. It is independent of PayPal and its sponsors.
+## What works today
 
-## Files
+- Public static demonstration: fictional records, scripted specialist consultations, three interactive cases, learner storefront, merchant desk, preview, approval, verification, source drilldown, audit trail, JSON recovery receipt.
+- Local Node backend: isolated cookie sessions, durable SQLite records, protected lesson-access endpoint, same-origin mutation checks, operator gate for configured integrations, serial per-session writes.
+- Setup-ready adapters: PayPal sandbox order creation/capture/fresh reads; four OpenAI Responses consultations with structured evidence citations; Render investigation and approved-recovery task chains.
+- Automated tests cover business invariants and mocked integration contracts. **Live PayPal, OpenAI, and Render credentials were not supplied; those services have not been tested end to end.** The published Sites version is the browser simulation, not the Node service.
 
-- `dist/index.html`, `site.css`, `crew.css`, `site.js`: landing page and local interactions.
-- `source/`: editable visualization sources for the recovery and agent demos.
-- `export-demos.cjs`: regenerates standalone demo pages using the visualization renderer and adds site navigation.
-- `serve.cjs`: local static server on port 4357.
-- `.openai/hosting.json`: Sites identity and static publishing directory.
+## Run
 
-Run `node serve.cjs` for local preview. Run `node export-demos.cjs` after editing the demo sources; the helper references the installed local rendering runtime.
+Use Node 24 or newer. From this directory:
 
-The deployment uses Sites. Render Workflows is the proposed orchestration partner for a future working backend; it is not the host or executing engine for this public demonstration.
+```sh
+npm ci
+npm test
+npm start
+```
 
-## Character refresh
+Open http://127.0.0.1:4358. It works without credentials in server-demo mode. To run the exact static publication instead, use `node serve.cjs` and http://127.0.0.1:4357.
 
-Four fictional AI personas now have distinct portraits, friendly introductions, and first-person explanations across the homepage and both demos. Ledger is the calm fact-checker, Relay the curious investigator, Patch the practical fixer, and Prism the thoughtful reviewer. Their original analytical responsibilities, uncertainty boundaries, and merchant approval remain intact.
+See [integration setup](docs/SETUP.md), [product scope](docs/PRODUCT.md), [demo script](docs/DEMO_SCRIPT.md), and [seller research kit](docs/SELLER_RESEARCH.md).
 
-The portrait atlas was created with the built-in image generation tool. Original: `source/crew-portraits-original.png`. Web asset: `dist/assets/crew-portraits.webp` (189 KB, same composition encoded as WebP). Demo exports embed the WebP so it loads within their restrictive sandbox. See `source/portrait-prompt.txt` for the generation prompt.
+## Structure
 
-Verified locally: desktop visual review; phone widths of 390 and 320 pixels without horizontal page overflow; homepage personality selection; agent-room profile selection; portrait loading within both demos; recovery approval reaching matching records with one correction. All behavior remains simulated.
+`dist/` is the published static site. `dist/core.mjs` contains shared recovery rules. `server/` owns durable state, provider calls, and authorization. `workflows/` defines Render tasks. `tests/` verifies the rules and HTTP/provider boundaries. `render.yaml` configures an optional web service; Workflows are configured separately. `.openai/hosting.json` retains the existing Sites project identity.
+
+The original PayTrace design remains in `source/` as historical design material. Do not run the legacy `export-demos.cjs` generator: it would restore the old visual pages. Current pages are authored directly in `dist/`. Existing portrait illustrations are fictional characters.
+
+## Prototype boundaries
+
+One fictional merchant, learner, course, and entitlement per session. No production payments, refunds, email sending, external LMS connector, webhook listener, or production merchant authentication. The storefront deliberately injects an access-update failure after capture; it does not diagnose an actual third-party store outage. The AI interprets supplied records but cannot authorize or execute writes. Citations are checked for valid source IDs, not automatically proven factually correct. Merchant approval and deterministic checks remain necessary.
+
+SQLite persistence and an in-process session lock support a single web-service instance. A production service needs tenant authentication, transactional idempotency with shared storage, webhook signature validation, retention controls, reconciliation jobs, refund/revocation handling, and a real course platform adapter. Approval is specific to the previewed evidence. Verification checks current state, not a permanent guarantee.
+
+CourseLatch is a working name, not a trademark-clearance claim. This is an independent project, not an official PayPal product.
