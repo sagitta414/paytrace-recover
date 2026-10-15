@@ -1,5 +1,13 @@
 # Focus frontend
 
+## AI identities and optional guidance
+
+The workspace reuses `dist/assets/crew-portraits.webp` for four fictional AI personas. Portraits appear on clickable team cards, specialist explanations, profiles, and guidance. Profiles state each specialist's scope and boundaries and distinguish fictional personas from human support representatives. No new image generation or external portrait service was used.
+
+`focus-guide.mjs` provides a five-step, dismissible orientation and an optional guided mode saved in this tab's sessionStorage. Contextual guidance reads the current case phase without changing case data. “Show me where” only expands and focuses the relevant evidence section. The guide never approves, repairs, or bypasses consent. Native dialogs support keyboard focus containment and Escape dismissal.
+
+Validation: 45 automated tests pass, including three tests proving guide purity, blocked-evidence guidance, and failed-verification messaging. Browser checks covered profiles, all tour steps, enable/disable, section reveal, the approval checkbox remaining required, and mobile dialog/layout bounds.
+
 ## Workspace refinement
 
 The refined workspace adds a state-based suggested case (verification problems first, then previews/approved actions), queue sorting, empty-search recovery, a current-proof-based recovery count, and a recent activity feed. Activity opens the originating case. Connections reports runtime configuration honestly; configured does not imply health-checked. No connection is established by viewing that page.
