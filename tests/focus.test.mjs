@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createCase,simulatePayment,investigate,rehearse,approve,applyRepair,verify} from '../dist/core.mjs';
+import {queueFor,nextStep} from '../dist/focus-model.mjs';
+test('Focus keeps failed verification in attention and offers a read-only retry',()=>{const s=simulatePayment(createCase());investigate(s);rehearse(s);approve(s,s.rehearsal.id);applyRepair(s);verify(s,{lessonAvailable:false});assert.equal(queueFor(s),'attention');assert.equal(nextStep(s)[0],'verify');verify(s);assert.equal(queueFor(s),'resolved');assert.equal(s.writes,1);});
+test('Focus never treats an outdated successful proof as resolved',()=>{const s=simulatePayment(createCase());investigate(s);rehearse(s);approve(s,s.rehearsal.id);applyRepair(s);verify(s);s.revision++;assert.notEqual(queueFor(s),'resolved');});
+test('Focus separates preview, approval and execution',()=>{const s=simulatePayment(createCase());investigate(s);assert.equal(nextStep(s)[0],'rehearse');rehearse(s);assert.equal(nextStep(s)[0],'approve');assert.equal(s.writes,0);approve(s,s.rehearsal.id);assert.equal(nextStep(s)[0],'repair');assert.equal(s.writes,0);});
