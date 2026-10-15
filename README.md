@@ -2,6 +2,10 @@
 
 PayTrace Recover helps merchants resolve cases where a customer paid but didn’t receive the digital access they purchased.
 
+[Public Focus dashboard demo](https://courselatch.sagitta107.chatgpt.site/focus.html) · [Setup instructions](docs/SETUP.md) · [Focus frontend and reliability](docs/FOCUS-FRONTEND.md)
+
+The public link runs a browser simulation using fictional records. Run the Node backend below to explore server-backed recovery; external integrations require your own sandbox credentials.
+
 The first working example is a paid course with missing access. The app checks the evidence, rehearses the smallest correction on a copy, asks the merchant to approve the exact change, applies it once, and checks the outcome. Memberships and downloads are future directions to validate, not supported connectors.
 
 ## What works today
@@ -56,3 +60,7 @@ Cases D–F demonstrate missing payment evidence, an earlier store retry restori
 5. **Customer response:** an editable evidence-based template that claims restoration only after current verification passes. Copying never sends a message. Templates are deterministic; the optional AI integration still handles specialist review.
 
 The custom investigation console is working; **AG Studio remains planned**. See [setup and prototype limits](docs/SETUP.md) before attempting a live deployment.
+
+## License
+
+Project source is available under the [MIT License](LICENSE). Third-party dependencies retain their own licenses. PayPal names and marks belong to their respective owners; this license grants no trademark rights or endorsement.
