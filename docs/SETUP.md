@@ -1,5 +1,7 @@
 # Integration setup
 
+For the full ordered deployment walkthrough and acceptance checklist, start with the [PayPal Sandbox and Render Build README](BUILD-README.md). This document is the shorter integration reference.
+
 The public Sites page deliberately uses sample records. To use live test services, deploy or run the Node app from this repository. Never put secret keys in `dist/`, browser code, public form fields, Git, or screenshots.
 
 ## 1. Local server
@@ -30,7 +32,7 @@ Reference: [OpenAI Structured Outputs](https://developers.openai.com/api/docs/gu
 
 ## 4. Render web service
 
-Put the source in a Git repository available to your Render account. The existing Sites Git remote is managed by Sites; connecting Render requires a repository Render can access. The supplied `render.yaml` describes one Node web service and persistent disk. Review Render's current costs before creating resources; no Render service was created by this build.
+Connect Render to the public [PayTrace Recover repository](https://github.com/sagitta414/paytrace-recover). The supplied `render.yaml` describes one Node web service and persistent disk. Review Render's current costs before creating resources; no Render service was created by this build.
 
 Use build command `npm ci`, start command `npm start`, Node 24+, and `DATABASE_PATH=/var/data/courselatch.sqlite`. Set `PUBLIC_URL` to the web service's exact HTTPS URL. Configure secrets through Render's environment settings. Keep one web instance because the SQLite database and session lock are local to it.
 

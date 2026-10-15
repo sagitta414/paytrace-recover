@@ -4,6 +4,8 @@ PayTrace Recover helps merchants resolve cases where a customer paid but didn’
 
 [Public Focus dashboard demo](https://courselatch.sagitta107.chatgpt.site/focus.html) · [Setup instructions](docs/SETUP.md) · [Focus frontend and reliability](docs/FOCUS-FRONTEND.md)
 
+**Building the connected version? Start with the [detailed PayPal Sandbox and Render Build README](docs/BUILD-README.md).** It covers account setup, environment variables, local checkout, AI review, persistent hosting, Render Workflows, acceptance tests, troubleshooting, and release readiness.
+
 The public link runs a browser simulation using fictional records. Run the Node backend below to explore server-backed recovery; external integrations require your own sandbox credentials.
 
 The first working example is a paid course with missing access. The app checks the evidence, rehearses the smallest correction on a copy, asks the merchant to approve the exact change, applies it once, and checks the outcome. Memberships and downloads are future directions to validate, not supported connectors.
