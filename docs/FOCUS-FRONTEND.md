@@ -1,5 +1,13 @@
 # Focus frontend
 
+## Case retrieval and failure handling
+
+The Node backend now exposes session-scoped `GET /api/case?caseId=...` for the selected case. It independently reads the payment adapter (PayPal sandbox for sandbox-origin captures, sample fixtures otherwise) and course-access adapter (the local course_access table). It returns separate availability, attempt timestamps, and last-success timestamps. Failed reads retain last-known values and invalidate approvals/proof; an outage is not treated as missing access. Action boundaries re-read the adapters. The course adapter is injectable in service tests; a real merchant platform adapter remains to be implemented and validated.
+
+Focus uses a timed request client with explicit network, timeout, session, server, rejection, and invalid-response errors. Portfolio and detail snapshots are validated before replacing the visible view. Interrupted requests require an explicit read-only refresh before further mutations. There are no automatic mutation retries. Guided mode also warns when the status is unconfirmed.
+
+Validation: 55 automated tests passed, including both-source retrieval, HTTP session scope, network failures, timeouts, 401/503 responses, invalid JSON, partial/wrong-case payloads, unavailable source retention, and a repair that succeeds but loses its response. A local browser fault-injection run confirmed that a failed post-approval refresh preserved the case, blocked execution, and recovered through a read-only status refresh. The failure harness is under ignored `qa/` and is not published. PayPal tests use an injected adapter; no credentialed live sandbox or third-party course platform was exercised. Public Sites hosting remains a browser simulation; Node server changes must be deployed with the backend.
+
 ## AI identities and optional guidance
 
 The workspace reuses `dist/assets/crew-portraits.webp` for four fictional AI personas. Portraits appear on clickable team cards, specialist explanations, profiles, and guidance. Profiles state each specialist's scope and boundaries and distinguish fictional personas from human support representatives. No new image generation or external portrait service was used.

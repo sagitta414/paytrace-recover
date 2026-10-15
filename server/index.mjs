@@ -19,6 +19,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    const cookie=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('cl_session='))?.slice(11);let session=cookie?store.get(cookie):null;
    if(!session){if(req.method!=='GET'||route!=='/api/state')return json(401,{error:'Start a demo session first.'});session=store.create();res.setHeader('Set-Cookie',`cl_session=${session.id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${publicUrl.protocol==='https:'?'; Secure':''}`)}
    if(route==='/api/state'&&req.method==='GET')return json(200,{state:session.state,operator:session.operator});
+   if(route==='/api/case'&&req.method==='GET')return json(200,await service.caseInfo(session.id,url.searchParams.get('caseId')));
    if(route==='/api/operations'&&req.method==='GET')return json(200,{cases:store.listCases(session.id),graceMinutes:store.grace(session.id)});
    if(route==='/api/draft'&&req.method==='GET')return json(200,service.draft(session.id));
    if(route==='/api/receipt'&&req.method==='GET')return json(200,service.receipt(session.id));

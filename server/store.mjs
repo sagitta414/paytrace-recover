@@ -28,6 +28,7 @@ export function openStore(file){
  }
  return {
   create(){const id=randomUUID(),state=simulatePayment(createCase('match','CL-'+randomUUID().slice(0,12)));db.prepare('INSERT INTO sessions VALUES (?,?,0,?)').run(id,put(state),Date.now());init(id);return {id,state,operator:false};},get,save,saveCase:savePortfolioCase,listCases,caseById,
+  readAccess(owner,s){caseById(owner,s.id);const a=db.prepare('SELECT * FROM course_access WHERE owner=? AND case_id=?').get(owner,s.id);return a?{userId:a.learner,courseId:a.course,active:true,captureId:a.capture}:{userId:s.order.userId,courseId:s.order.courseId,active:false,captureId:null};},
   owners(){return db.prepare('SELECT id FROM sessions').all().map(r=>r.id);},
   grace(owner){return db.prepare('SELECT grace FROM monitor_settings WHERE owner=?').get(owner)?.grace||5;},
   setGrace(owner,n){db.prepare('INSERT INTO monitor_settings VALUES (?,?) ON CONFLICT(owner) DO UPDATE SET grace=excluded.grace').run(owner,n);},
