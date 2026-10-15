@@ -1,5 +1,11 @@
 # Focus frontend
 
+## Workspace refinement
+
+The refined workspace adds a state-based suggested case (verification problems first, then previews/approved actions), queue sorting, empty-search recovery, a current-proof-based recovery count, and a recent activity feed. Activity opens the originating case. Connections reports runtime configuration honestly; configured does not imply health-checked. No connection is established by viewing that page.
+
+The review adds separate payment, entitlement, and outcome indicators. Navigation, search, sorting, explicit approval, successful repair, and mobile dashboard/review layouts were exercised in the browser. The 42-test suite remains passing. Public content remains a simulation.
+
 Entry: `/focus.html`. The public Sites deployment uses browser simulation; `npm run dev` serves the same page against the existing Node API. The landing page navigation links to Focus; the advanced demo and design galleries remain available.
 
 ## Merchant flow
