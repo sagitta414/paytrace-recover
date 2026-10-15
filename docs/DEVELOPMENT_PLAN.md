@@ -6,7 +6,7 @@ This plan covers a hackathon deployment first, followed by a merchant pilot. It 
 
 ## Current baseline
 
-- Existing: responsive static demo, six scenarios, agent challenge round, rehearsal, approval, recovery receipt, shared recovery rules, Node 24 backend, SQLite persistence, and automated tests.
+- Existing: responsive static demo, nine scenarios, agent challenge round, rehearsal, approval, recovery receipt, shared recovery rules, Node 24 backend, SQLite persistence, and automated tests.
 - Prepared but not validated end to end: PayPal sandbox adapter, live AI review adapter, and Render investigation and recovery tasks.
 - New work: AG Studio integration, separate merchant and learner identities, protected content delivery, stronger workflow recovery, and deployed integration evidence.
 - Current limitations: case ownership follows a demo cookie session; writes use an in-process lock; verification calls the same application's access predicate; lesson content is present in the frontend demonstration. These are not sufficient for the proposed customer-side verification claim.
@@ -178,3 +178,7 @@ Track verified access restorations, time to resolution, manual touches, and case
 - [Existing integration setup](SETUP.md)
 - [Existing product scope](PRODUCT.md)
 - [Existing challenge validation](CHALLENGE_ROUND.md)
+
+## Implemented prototype update
+
+The five-improvement update adds delivery-window monitoring of saved purchases, cause-specific routing, related-case filtering, a scoped authenticated HTTP content probe, and editable customer-response templates. The custom console is operational; AG Studio is still planned. The Node content probe verifies our demo service, not an external LMS. Production identities, cross-instance coordination, external webhooks, and actual PayPal/AI/Render acceptance runs remain outstanding. See README and SETUP for current behavior and limits.

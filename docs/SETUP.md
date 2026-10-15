@@ -55,3 +55,13 @@ Reference: [task definitions](https://render.com/docs/workflows-defining), [runn
 - The correct purchase unlocks one entitlement, fresh verification passes, and the lesson opens.
 - Conflict case stays locked. Failed-read case stays unverified until retry; access-write count remains one.
 - Capture provider request/run IDs and screenshots with secrets excluded. Date this evidence and update README's integration status only after success.
+
+## Access Watch and content verification
+
+Each demo session owns a portfolio seeded with seven fictional purchases. The delivery window accepts integer values from 1 to 60 minutes. The backend scans saved purchases every 30 seconds while running; a manual scan is available. Configured sandbox captures are refreshed from PayPal. This is not an external store discovery service or a webhook listener. The static demo uses fictional timestamps and scans only while its page is visible.
+
+Cases with matching merchant, course, enrollment error, and payment timestamps within 15 minutes can be filtered together. They retain separate reviews and approvals. No bulk repair is authorized. Wrong login accounts, expired terms, pending captures, and conflicting records cannot trigger the same grant.
+
+The Node verifier issues a short-lived capability for a specific learner, course, and case, requests `/api/learner/content` over HTTP, validates the returned lesson identity and content, and revokes the capability. The learner view uses its own HttpOnly scoped cookie. The course service checks a separately stored access grant and current purchase eligibility. These capabilities model a learner session; merchants can issue them in this isolated demo, so they do not constitute production learner authentication. The probe is against this application’s sample course service, not an external LMS. The public static demo labels content verification simulated.
+
+Customer responses are editable deterministic templates. A successful current proof is required before suggesting restoration. Evidence changes reset the draft. Copying is local; no email or message is sent.
