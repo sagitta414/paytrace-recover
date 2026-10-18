@@ -1,5 +1,7 @@
 # Integration setup
 
+On Render, the server automatically trusts the exact `RENDER_EXTERNAL_URL` supplied by Render. `PUBLIC_URL` can additionally identify an HTTPS custom domain; local development still uses `PUBLIC_URL` or localhost defaults. Arbitrary request Host and forwarded headers are never trusted. This prevents a missing or stale local PUBLIC_URL from blocking the deployed service's own requests while retaining origin checks and secure cookies.
+
 For the full ordered deployment walkthrough and acceptance checklist, start with the [PayPal Sandbox and Render Build README](BUILD-README.md). This document is the shorter integration reference.
 
 The public Sites page deliberately uses sample records. To use live test services, deploy or run the Node app from this repository. Never put secret keys in `dist/`, browser code, public form fields, Git, or screenshots.

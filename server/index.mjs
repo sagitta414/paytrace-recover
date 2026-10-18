@@ -1,7 +1,8 @@
+import {originConfig} from './origins.mjs';
 import http from 'node:http';import {readFile} from 'node:fs/promises';import path from 'node:path';import {fileURLToPath} from 'node:url';import {timingSafeEqual} from 'node:crypto';import {openStore} from './store.mjs';import {createService} from './service.mjs';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../dist');
 export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./data/courselatch.sqlite')){
- const service=createService(store,env,{probe:async token=>{const address=server.address();if(!address||typeof address==='string')throw Error('Content service unavailable.');const r=await fetch(`http://127.0.0.1:${address.port}/api/learner/content`,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Protected content could not be retrieved.');return r.json();}}),attempts=new Map();const publicUrl=new URL(env.PUBLIC_URL||'http://127.0.0.1:'+(env.PORT||4358));
+ const service=createService(store,env,{probe:async token=>{const address=server.address();if(!address||typeof address==='string')throw Error('Content service unavailable.');const r=await fetch(`http://127.0.0.1:${address.port}/api/learner/content`,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Protected content could not be retrieved.');return r.json();}}),attempts=new Map();const originPolicy=originConfig(env),publicUrl=originPolicy.publicUrl;
  function equal(a,b){if(!a||!b)return false;const aa=Buffer.from(a),bb=Buffer.from(b);return aa.length===bb.length&&timingSafeEqual(aa,bb)}
  const server=http.createServer(async(req,res)=>{const json=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value))};try{
   const url=new URL(req.url,publicUrl);const route=url.pathname;
@@ -13,7 +14,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    const internal=route==='/api/internal/stage';
    if(internal&&!equal(req.headers.authorization,'Bearer '+env.WORKFLOW_SECRET))return json(401,{error:'Workflow authentication required.'});
    if(internal&&!env.WORKFLOW_SECRET)return json(401,{error:'Workflow authentication required.'});
-   if(req.method==='POST'&&!internal&&req.headers.origin!==publicUrl.origin)return json(403,{error:'Same-origin request required.'});
+   if(req.method==='POST'&&!internal&&!originPolicy.allows(req.headers.origin))return json(403,{error:'Same-origin request required.'});
    let body={};if(req.method==='POST'){if(!String(req.headers['content-type']).startsWith('application/json'))return json(415,{error:'JSON required.'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>20000)return json(413,{error:'Request too large.'})}try{body=JSON.parse(raw)}catch{return json(400,{error:'Invalid JSON.'})}}
    if(internal){if(req.method!=='POST')return json(405,{error:'POST required.'});const result=await service.stage(body.sessionId,body.stage,body.jobId);return json(200,result)}
    const cookie=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('cl_session='))?.slice(11);let session=cookie?store.get(cookie):null;
