@@ -1,4 +1,5 @@
 import {readCaseSources} from './case-sources.mjs';
+import {newCase,validateNewCase} from '../dist/new-case-model.mjs';
 import {randomUUID} from 'node:crypto';
 import {createCase,simulatePayment,investigate,rehearse,approve,applyRepair,verify,canOpenLesson,record,fingerprint,attachAnalysis,changeSampleEvidence,restoreSampleEvidence} from '../dist/core.mjs';
 import {analyze} from './ai.mjs';import {paypalClient} from './paypal.mjs';
@@ -22,11 +23,17 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
  async function enqueue(id,kind){const row=store.get(id),s=row.state;const jobId=randomUUID();if(kind==='investigate'){s.review=null;s.analysis=null;s.rehearsal=null;s.approval=null;s.phase='reviewing'}s.job={id:jobId,kind,pending:true};store.save(id,s);try{const r=await fetcher('https://api.render.com/v1/task-runs',{method:'POST',headers:{Authorization:'Bearer '+env.RENDER_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({task:kind==='investigate'?env.RENDER_INVESTIGATE_TASK:env.RENDER_RECOVER_TASK,input:[id,jobId]}),signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('Render did not accept the workflow run.');const run=await r.json();const latest=store.get(id).state;latest.job={...latest.job,runId:run.id||null};store.save(id,latest);return {state:latest,job:true}}catch(e){const latest=store.get(id).state;latest.job={...latest.job,pending:false,error:e.message};store.save(id,latest);throw e}}
  async function action(id,body){return store.lock(id,async()=>{const row=store.get(id);if(!row)throw Error('Session not found.');let s=row.state;if(s.job?.pending)throw Error('A workflow is already running. Refresh shortly.');
   switch(body.action){
+   case 'create-case':{
+    const input=validateNewCase(body),portfolio=store.listCases(id),existing=portfolio.find(c=>c.id==='CL-'+input.requestId);
+    if(existing){if(JSON.stringify(existing.creationInput)!==JSON.stringify(input))throw Error('This request already created a different case. Refresh the queue.');s=existing;break;}
+    if(portfolio.length>=100)throw Error('This demo workspace has reached its 100-case limit.');
+    s=newCase(input);break;
+   }
    case 'select-case':s=store.caseById(id,body.caseId);break;
    case 'sample-age':if(s.capture?.source!=='sample')throw Error('Only sample purchase timestamps can be changed.');s.paidAt=new Date(Date.now()-10*60000).toISOString();record(s,'Demo: sample purchase moved ten minutes into the past.');break;
    case 'reset':s=createCase(s.scenario,'CL-'+randomUUID().slice(0,12));break;
    case 'scenario':s=simulatePayment(createCase(body.scenario,'CL-'+randomUUID().slice(0,12)));break;
-   case 'pay':if(s.paypalOrderId)throw Error('A PayPal sandbox checkout already exists. Restart before using sample checkout.');simulatePayment(s);break;
+   case 'pay':if(s.intakeMode==='sandbox')throw Error('Use PayPal sandbox checkout for this case. Sample payment is disabled.');if(s.paypalOrderId)throw Error('A PayPal sandbox checkout already exists. Restart before using sample checkout.');simulatePayment(s);break;
    case 'investigate':if(row.operator&&workflowReady())return enqueue(id,'investigate');s.review=null;s.phase='reviewing';store.save(id,s);await fresh(s,id);investigate(s);s.review=null;s.phase='reviewing';store.save(id,s);attachAnalysis(s,await analyze(s,row.operator?env:{},fetcher));break;
    case 'change-evidence':changeSampleEvidence(s);break;
    case 'restore-evidence':restoreSampleEvidence(s);break;

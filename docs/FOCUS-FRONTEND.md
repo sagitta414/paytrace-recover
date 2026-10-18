@@ -39,3 +39,12 @@ The browser demo stores only sample cases in sessionStorage under `paytrace-focu
 ## Verification
 
 42 automated tests passed, including new Focus tests for failed verification, outdated proof, and separate approval/execution steps. Browser checks covered consent gating, successful recovery, failed verification with read-only retry, and a 390px viewport with no horizontal overflow. A local Node-backed browser run completed session initialization, case selection, investigation, preview, approval, repair, and protected-content verification. That run caught and fixed missing session initialization before reading the case portfolio.
+# New case intake
+
+Use **+ New case** above the Focus dashboard to create a case for the fixed $128 demo course. Enter a fictional customer display name and choose either an unpaid PayPal sandbox purchase or a clearly labeled sample payment. Each case receives a unique demo learner identity. This does not import an existing external payment or connect a real LMS customer.
+
+The backend `create-case` action validates input, persists the case in the session's portfolio, and selects it. Repeating the same creation request returns the existing case; altered details with the same request ID are rejected. Cases are limited to 100 per demo workspace. No approval, entitlement, or captured payment can be supplied by the caller.
+
+For sandbox cases, choose **Open sandbox checkout**, unlock integrations on the checkout desk, and switch to the learner view. Do not restart the story: that would select a different purchase. Sample-payment substitution is blocked for sandbox-intake cases. After checkout, return to Focus and open the case from the queue. Approval and verification remain required.
+
+Static mode supports sample creation only, retained in browser session storage. Render backend mode persists cases in SQLite. Native dialog controls provide labels, keyboard focus containment, cancel, validation, and visible request errors. Uncertain creation responses can be retried with the same request ID while the form remains available.
