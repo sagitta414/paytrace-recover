@@ -66,3 +66,6 @@ The custom investigation console is working; **AG Studio remains planned**. See 
 ## License
 
 Project source is available under the [MIT License](LICENSE). Third-party dependencies retain their own licenses. PayPal names and marks belong to their respective owners; this license grants no trademark rights or endorsement.
+# Customer progress and messaging
+
+Customers can follow a private case, message the merchant, answer information requests, open verified demo course content, and confirm success or ask for more help. Admin notes stay private. Start in the Focus case’s **Customer communication** panel; see [customer support setup and testing](docs/CUSTOMER-SUPPORT.md). Email alerts require optional Resend configuration and report provider acceptance separately from delivery.

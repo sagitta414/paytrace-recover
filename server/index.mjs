@@ -17,15 +17,37 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    if(req.method==='POST'&&!internal&&!originPolicy.allows(req.headers.origin))return json(403,{error:'Same-origin request required.'});
    let body={};if(req.method==='POST'){if(!String(req.headers['content-type']).startsWith('application/json'))return json(415,{error:'JSON required.'});let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>20000)return json(413,{error:'Request too large.'})}try{body=JSON.parse(raw)}catch{return json(400,{error:'Invalid JSON.'})}}
    if(internal){if(req.method!=='POST')return json(405,{error:'POST required.'});const result=await service.stage(body.sessionId,body.stage,body.jobId);return json(200,result)}
+   if(route.startsWith('/api/customer/')){
+    const key='customer:'+req.socket.remoteAddress,rate=attempts.get(key)||{count:0,until:Date.now()+60000};if(Date.now()>rate.until){rate.count=0;rate.until=Date.now()+60000;}rate.count++;attempts.set(key,rate);if(rate.count>120)return json(429,{error:'Please wait a minute before trying again.'});
+    if(route==='/api/customer/request-link'&&req.method==='POST')return json(200,store.support.requestLink(body.reference,body.email));
+    if(route==='/api/customer/session'&&req.method==='POST'){const token=store.support.exchange(body.token);res.setHeader('Set-Cookie',`pt_customer=${token}; Path=/api/customer; HttpOnly; SameSite=Strict; Max-Age=86400${publicUrl.protocol==='https:'?'; Secure':''}`);return json(200,{ok:true});}
+    const token=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('pt_customer='))?.slice(12);let identity;try{identity=store.support.authenticate(token);}catch{return json(401,{error:'Open your private link or request a new one to view this case.'});}
+    const expected=body.caseId||url.searchParams.get('caseId');if(expected&&expected!==identity.case_id)return json(409,{error:'A different customer case is open in this browser. Reopen the private link for this case before continuing.'});
+    if(route==='/api/customer/case'&&req.method==='GET')return json(200,store.support.view(identity.owner,identity.case_id));
+    if(route==='/api/customer/lesson'&&req.method==='GET')return json(200,store.support.lesson(identity.owner,identity.case_id));
+    if(route==='/api/customer/message'&&req.method==='POST')return json(200,store.support.mutate(identity.owner,identity.case_id,body));
+    return json(404,{error:'Endpoint not found.'});
+   }
    const cookie=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('cl_session='))?.slice(11);let session=cookie?store.get(cookie):null;
    if(!session){if(req.method!=='GET'||route!=='/api/state')return json(401,{error:'Start a demo session first.'});session=store.create();res.setHeader('Set-Cookie',`cl_session=${session.id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${publicUrl.protocol==='https:'?'; Secure':''}`)}
    if(route==='/api/state'&&req.method==='GET')return json(200,{state:session.state,operator:session.operator});
+   if(route==='/api/support/inbox'&&req.method==='GET')return json(200,{items:store.support.inbox(session.id)});
+   if(route==='/api/support'&&req.method==='GET')return json(200,store.support.view(session.id,url.searchParams.get('caseId'),true));
    if(route==='/api/case'&&req.method==='GET')return json(200,await service.caseInfo(session.id,url.searchParams.get('caseId')));
    if(route==='/api/operations'&&req.method==='GET')return json(200,{cases:store.listCases(session.id),graceMinutes:store.grace(session.id)});
    if(route==='/api/draft'&&req.method==='GET')return json(200,service.draft(session.id));
    if(route==='/api/receipt'&&req.method==='GET')return json(200,service.receipt(session.id));
    if(route==='/api/lesson'&&req.method==='GET'){try{return json(200,service.lesson(session.id))}catch{return json(403,{error:'Course access is locked.'})}}
    if(req.method!=='POST')return json(405,{error:'POST required.'});
+   if(route==='/api/support'){
+    if(!session.operator)return json(403,{error:'Unlock the operator session in the checkout & setup desk first.'});
+    const id=body.caseId;store.caseById(session.id,id);
+    if(body.action==='contact'){store.support.contact(session.id,id,body.email);return json(200,store.support.view(session.id,id,true));}
+    if(body.action==='link'){const token=store.support.mint(session.id,id);return json(200,{url:new URL('/customer.html#'+token,publicUrl).href});}
+    if(body.action==='revoke'){store.support.revoke(session.id,id);return json(200,{ok:true});}
+    if(body.action==='invite'){const s=store.caseById(session.id,id);const v=store.support.view(session.id,id,true);return json(200,store.support.requestLink(s.order.id,v.email));}
+    return json(200,store.support.mutate(session.id,id,body,true));
+   }
    if(route==='/api/monitor/scan')return json(200,await service.scan(session.id,body));
    if(route==='/api/learner/session'){if(session.state.currentAccountId&&session.state.currentAccountId!==session.state.order.userId)return json(403,{error:'Sign in with the purchasing account before opening a learner session.'});const token=store.mintLearnerToken(session.id,session.state.id);res.setHeader('Set-Cookie',`cl_learner=${token}; Path=/api/learner; HttpOnly; SameSite=Strict; Max-Age=600${publicUrl.protocol==='https:'?'; Secure':''}`);return json(200,{ok:true,mode:'Scoped demonstration learner session; not production sign-in'});}
    if(route==='/api/operator'){const entry=attempts.get(session.id)||{count:0,until:Date.now()+600000};if(Date.now()>entry.until){entry.count=0;entry.until=Date.now()+600000}entry.count++;attempts.set(session.id,entry);if(entry.count>5)return json(429,{error:'Too many attempts. Try later.'});if(!equal(body.key,env.DEMO_OPERATOR_KEY))return json(403,{error:'Operator key is not configured or does not match.'});store.authorize(session.id);return json(200,{ok:true})}
@@ -38,7 +60,8 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
   let pathname=decodeURIComponent(route);if(pathname.endsWith('/'))pathname+='index.html';const file=path.resolve(ROOT,'.'+pathname);if(!file.startsWith(ROOT+path.sep))return json(403,{error:'Forbidden.'});let bytes;try{bytes=await readFile(file)}catch{return json(404,{error:'Not found.'})}
   const types={'.html':'text/html; charset=utf-8','.css':'text/css','.mjs':'text/javascript','.js':'text/javascript','.svg':'image/svg+xml','.webp':'image/webp','.png':'image/png'};res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(req.method==='HEAD'?undefined:bytes);
  }catch(e){json(400,{error:e.message?.slice(0,250)||'Request failed.'})}});
- let monitorTimer,scanning=false;
+ let monitorTimer,mailTimer,scanning=false,mailing=false;
+ server.on('listening',()=>{mailTimer=setInterval(async()=>{if(mailing)return;mailing=true;try{await store.support.flush(env,publicUrl);}catch{}finally{mailing=false;}},5000);mailTimer.unref();});server.on('close',()=>clearInterval(mailTimer));
  server.on('listening',()=>{monitorTimer=setInterval(async()=>{if(scanning)return;scanning=true;try{for(const id of store.owners())await service.scan(id).catch(()=>{});}finally{scanning=false;}},30000);monitorTimer.unref();});
  server.on('close',()=>clearInterval(monitorTimer));return {server,store,service};
 }

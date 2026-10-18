@@ -4,6 +4,7 @@ import {dirname} from 'node:path';
 import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import {createCase,simulatePayment,canOpenLesson} from '../dist/core.mjs';
 import {seedPortfolio} from '../dist/operations.mjs';
+import {customerSupport} from './customer-support.mjs';
 export function openStore(file){
  if(file!==':memory:')mkdirSync(dirname(file),{recursive:true});
  const db=new DatabaseSync(file),locks=new Map();
@@ -14,7 +15,7 @@ export function openStore(file){
  CREATE TABLE IF NOT EXISTS course_access (owner TEXT NOT NULL, case_id TEXT NOT NULL, learner TEXT NOT NULL, course TEXT NOT NULL, capture TEXT NOT NULL, PRIMARY KEY(owner,case_id));
  CREATE TABLE IF NOT EXISTS learner_tokens (hash TEXT PRIMARY KEY, owner TEXT NOT NULL, case_id TEXT NOT NULL, learner TEXT NOT NULL, course TEXT NOT NULL, expires INTEGER NOT NULL);`);
  const put=s=>JSON.stringify(s),hash=token=>createHash('sha256').update(token).digest('hex');
- function saveCase(owner,state){db.prepare('INSERT INTO cases VALUES (?,?,?) ON CONFLICT(owner,id) DO UPDATE SET value=excluded.value').run(owner,state.id,put(state));}
+ function saveCase(owner,state){db.prepare('INSERT INTO cases VALUES (?,?,?) ON CONFLICT(owner,id) DO UPDATE SET value=excluded.value').run(owner,state.id,put(state));support.sync(owner,state);}
  function get(id){const row=db.prepare('SELECT * FROM sessions WHERE id=?').get(id);return row?{id,state:JSON.parse(row.value),operator:!!row.operator}:null;}
  function save(owner,state){db.prepare('UPDATE sessions SET value=?,updated=? WHERE id=?').run(put(state),Date.now(),owner);saveCase(owner,state);}
  function grantRecord(owner,s){db.prepare('INSERT INTO course_access VALUES (?,?,?,?,?) ON CONFLICT(owner,case_id) DO NOTHING').run(owner,s.id,s.order.userId,s.order.courseId,s.capture.id);}
@@ -26,7 +27,8 @@ export function openStore(file){
   if(!a||!canOpenLesson(s)||learner!==s.order.userId||course!==s.order.courseId||a.learner!==learner||a.course!==course||a.capture!==s.capture.id)throw Error('Course access is locked or belongs to another learner.');
   return {accessible:true,userId:learner,courseId:course,captureId:a.capture,contentId:'light-lesson-01',lesson:'See the light',title:'Find the light before the frame.',body:'Find a window with soft, indirect daylight. Place an everyday object beside it. Make three frames: facing the light, beside it, and against it.'};
  }
- return {
+ const support=customerSupport(db,{caseById,content});
+ return {support,
   create(){const id=randomUUID(),state=simulatePayment(createCase('match','CL-'+randomUUID().slice(0,12)));db.prepare('INSERT INTO sessions VALUES (?,?,0,?)').run(id,put(state),Date.now());init(id);return {id,state,operator:false};},get,save,saveCase:savePortfolioCase,listCases,caseById,
   readAccess(owner,s){caseById(owner,s.id);const a=db.prepare('SELECT * FROM course_access WHERE owner=? AND case_id=?').get(owner,s.id);return a?{userId:a.learner,courseId:a.course,active:true,captureId:a.capture}:{userId:s.order.userId,courseId:s.order.courseId,active:false,captureId:null};},
   owners(){return db.prepare('SELECT id FROM sessions').all().map(r=>r.id);},
