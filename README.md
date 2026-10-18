@@ -69,3 +69,7 @@ Project source is available under the [MIT License](LICENSE). Third-party depend
 # Customer progress and messaging
 
 Customers can follow a private case, message the merchant, answer information requests, open verified demo course content, and confirm success or ask for more help. Admin notes stay private. Start in the Focus case’s **Customer communication** panel; see [customer support setup and testing](docs/CUSTOMER-SUPPORT.md). Email alerts require optional Resend configuration and report provider acceptance separately from delivery.
+
+## Follow the recovery story
+
+Open `/story.html` for the interactive Merchant/Customer story, including a successful recovery and a mismatched payment the system refuses to repair. The story uses labeled local sample data and scripted analysis. The connected Focus workspace also includes a concise decision brief and measured outcome facts. See the [demo walkthrough and measurement boundaries](docs/DEMO-STORY.md).
