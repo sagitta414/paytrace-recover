@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createCase,simulatePayment,investigate,rehearse,approve,applyRepair,verify} from '../dist/core.mjs';
+import {caseHandoff,priorities} from '../dist/focus-clarity.mjs';
+import {customerNext,customerNextMarkup} from '../dist/customer-clarity.mjs';
+
+test('frontend handoffs distinguish approval, failed verification and stale proof',()=>{
+ const s=simulatePayment(createCase());investigate(s);rehearse(s);
+ assert.equal(priorities([s])[0].items.length,1);
+ approve(s,s.rehearsal.id);applyRepair(s);verify(s,{lessonAvailable:false});
+ assert.match(caseHandoff(s).title,/without another grant/);
+ assert.equal(priorities([s])[1].items.length,1);
+ verify(s);assert.match(caseHandoff(s).title,/Access verified/);
+ assert.match(caseHandoff(s,true).title,/Refresh/);
+ s.revision++;assert.doesNotMatch(caseHandoff(s).title,/Access verified/);
+});
+test('customer handoff gives reopened help and evidence requests priority over success',()=>{
+ assert.equal(customerNext({verified:true,confirmedAt:'today',help:true}).title,'Your request is still open');
+ assert.equal(customerNext({verified:true,request:'Please check the receipt'}).owner,'You');
+ assert.match(customerNext({verified:false,confirmedAt:'yesterday'}).title,/being reviewed/);
+ assert.match(customerNext({verified:true}).title,/Try opening/);
+ const html=customerNextMarkup({request:'<img onerror=alert(1)>',messages:[]});
+ assert.ok(!html.includes('<img'));assert.ok(html.includes('&lt;img'));
+});
