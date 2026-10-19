@@ -73,3 +73,9 @@ Customers can follow a private case, message the merchant, answer information re
 ## Follow the recovery story
 
 Open `/story.html` for the interactive Merchant/Customer story, including a successful recovery and a mismatched payment the system refuses to repair. The story uses labeled local sample data and scripted analysis. The connected Focus workspace also includes a concise decision brief and measured outcome facts. See the [demo walkthrough and measurement boundaries](docs/DEMO-STORY.md).
+
+## Local backend update
+
+This source package incorporates upstream revision `ae216c815358b925a1a4475e99f07e1b55ab5946` and the earlier local UI fixes. Additional backend checks enforce workflow stage order, persist completed stage results for safe callback retries, reject stale case identifiers from browser tabs, validate JSON request objects and byte limits, and refresh existing sandbox captures without capturing again. Browser actions pass the selected case ID to the backend.
+
+Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL is http://127.0.0.1:4358; configure both `PORT` and `PUBLIC_URL` when choosing another port. Use `.env.example` for optional integration configuration. The complete suite contains 87 tests, including HTTP, persistence, private customer support, and mocked provider contracts. Live PayPal, AI, workflow, and email acceptance tests still require your own credentials.
