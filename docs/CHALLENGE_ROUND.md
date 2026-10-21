@@ -14,7 +14,7 @@ The review does not establish the root cause of the injected timeout. That uncer
 
 ## Model adapter
 
-Without configured credentials, the server and public site label the dialogue scripted. With an operator-unlocked API key and explicitly configured model, the server makes at most six Responses calls: three specialist findings, Prism's 1–3 objections, Ledger's single evidence response using payment and store records, and Prism's per-objection decision. Source IDs, categories, unique objection IDs, required answers, status values and text lengths are validated. No second debate loop or automatic repair follows.
+Without configured credentials, the server and public site label the dialogue scripted. With an operator-unlocked API key and explicitly configured model, the server makes six to eight Responses calls: distinct Ledger, Relay, and Patch findings; Prism's 1–3 objections; one response from each specialist with an assigned objection; and Prism's per-objection decision and independent conclusion. Identity questions go to Ledger, missing or duplicate access evidence goes to Relay, and correction scope goes to Patch. Source IDs, categories, unique objection IDs, required answers, status values and text lengths are validated. No second debate loop or automatic repair follows.
 
 Code recomputes mandatory checks when attaching the model result. It retains deterministic objections, and any open model objection adds a hold. Invalid, refused, incomplete or failed model output leaves the stored case in an incomplete-review state, never a scripted fallback that permits repair. Agent characters are roles sharing one configured model, not independent external experts.
 
@@ -31,6 +31,6 @@ Schemas follow [OpenAI Structured Outputs](https://developers.openai.com/api/doc
 
 ## Validation and limits
 
-Automated tests cover each decision path, stale snapshots, lost objections, live-review failure, six-call bounds, model non-mutation, exact-check precedence, and the server zero-write verification path. API and Render tests use mocks. PayPal, OpenAI and Render have not been configured or tested live.
+Automated tests cover each decision path, stale snapshots, lost objections, live-review failure, six-to-eight-call bounds and specialist routing, model non-mutation, exact-check precedence, and the server zero-write verification path. API and Render tests use mocks. PayPal, OpenAI and Render have not been configured or tested live.
 
 The public website is a browser simulation. The backend uses a sample entitlement store and a lesson-access endpoint; it is not connected to an external learning platform. The existing Render integration still needs operational acceptance testing, including abandoned-run handling and retry behavior. No production readiness claim is made.

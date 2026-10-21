@@ -4,6 +4,12 @@ const sources={type:'array',items:{type:'string',enum:sourceIds}};
 const object=properties=>({type:'object',properties,required:Object.keys(properties),additionalProperties:false});
 const string={type:'string'};
 const findingSchema=object({summary:string,unknown:string,sources});
+const specialistTasks=[
+ 'Check only the exact capture status, order ID, learner ID, course ID, amount, and currency. Say which matches and which does not. Do not diagnose enrollment.',
+ 'Reconstruct the recorded payment-to-entitlement sequence. Separate an attempted update from confirmed access and identify any missing event evidence. Do not infer the timeout cause.',
+ 'Describe the smallest possible entitlement change, or explain why no change is safe. Account for existing access, the purchased learner and course, and the need for merchant approval and later verification.'
+];
+const answerOwner={identity:0,evidence:1,duplicate:1,scope:2};
 const objectionSchema=object({question:string,category:{type:'string',enum:['identity','evidence','duplicate','scope']},sources});
 function textValid(v,max=1600){return typeof v==='string'&&v.trim().length>0&&v.length<=max}
 function citations(v){return Array.isArray(v)&&v.length>0&&v.length<=4&&v.every(x=>sourceIds.includes(x))}
@@ -18,7 +24,7 @@ export async function analyze(s,env=process.env,fetcher=fetch){
   try{return JSON.parse(j.output?.flatMap(o=>o.content||[]).filter(c=>c.type==='output_text').map(c=>c.text).join(''))}catch{throw Error('AI review returned no usable finding.')}
  }
  for(let agent=0;agent<3;agent++){
-  const f=await ask(agent,'Review your specialty. Propose the smallest justified next step.',findingSchema,{priorFindings:results});
+  const f=await ask(agent,specialistTasks[agent],findingSchema,{priorFindings:results});
   if(!textValid(f.summary)||!textValid(f.unknown,800)||!citations(f.sources))throw Error('AI finding failed source validation.');
   results.push({agent,...f});
  }
@@ -26,14 +32,22 @@ export async function analyze(s,env=process.env,fetcher=fetch){
  if(!Array.isArray(challenge.objections)||!challenge.objections.length||challenge.objections.length>3||challenge.objections.some(o=>!textValid(o.question,800)||!citations(o.sources)||!['identity','evidence','duplicate','scope'].includes(o.category)))throw Error('AI objections failed source validation.');
  const objections=challenge.objections.map((o,i)=>({...o,id:'model-'+(i+1)}));
  const idSchema={type:'string',enum:objections.map(o=>o.id)};
- const response=await ask(0,'Answer each objection once using the supplied payment and store evidence. Acknowledge unavailable evidence. Do not infer a timeout cause.',object({answers:{type:'array',items:object({id:idSchema,summary:string,sources})}}),{priorFindings:results,objections});
- function complete(list){return Array.isArray(list)&&list.length===objections.length&&new Set(list.map(o=>o.id)).size===objections.length&&list.every(o=>objections.some(x=>x.id===o.id)&&textValid(o.summary)&&citations(o.sources))}
- if(!complete(response.answers))throw Error('AI response omitted an objection or failed source validation.');
- const decision=await ask(3,'Review each response against the actual evidence. Mark an objection resolved only when its cited records answer it; otherwise leave it open. This is the final round. Do not force consensus.',object({decisions:{type:'array',items:object({id:idSchema,summary:string,sources,status:{type:'string',enum:['open','resolved']}})}}),{priorFindings:results,objections,answers:response.answers});
- if(!complete(decision.decisions)||decision.decisions.some(d=>!['open','resolved'].includes(d.status)))throw Error('AI final review omitted an objection or failed source validation.');
+ const answers=[];
+ for(let agent=0;agent<3;agent++){
+  const assigned=objections.filter(o=>answerOwner[o.category]===agent);
+  if(!assigned.length)continue;
+  const assignedIds=assigned.map(o=>o.id);
+  const response=await ask(agent,'Answer only the objections assigned to your specialty. Use the supplied records, acknowledge unavailable evidence, and never infer an unobserved root cause.',object({answers:{type:'array',items:object({id:{type:'string',enum:assignedIds},summary:string,sources})}}),{priorFindings:results,objections:assigned});
+  if(!Array.isArray(response.answers)||response.answers.length!==assigned.length||new Set(response.answers.map(a=>a.id)).size!==assigned.length||response.answers.some(a=>!assignedIds.includes(a.id)||!textValid(a.summary)||!citations(a.sources)))throw Error('AI response omitted an objection or failed source validation.');
+  answers.push(...response.answers.map(a=>({...a,agent})));
+ }
+ const decision=await ask(3,'Review each response against the actual evidence. Mark an objection resolved only when its cited records answer it; otherwise leave it open. Give your own concise conclusion and remaining uncertainty as the independent reviewer. This is the final round. Do not force consensus.',object({summary:string,unknown:string,sources,decisions:{type:'array',items:object({id:idSchema,summary:string,sources,status:{type:'string',enum:['open','resolved']}})}}),{priorFindings:results,objections,answers});
+ if(!textValid(decision.summary)||!textValid(decision.unknown,800)||!citations(decision.sources))throw Error('AI independent review failed source validation.');
+ if(!Array.isArray(decision.decisions)||decision.decisions.length!==objections.length||new Set(decision.decisions.map(d=>d.id)).size!==objections.length||decision.decisions.some(d=>!objections.some(o=>o.id===d.id)||!textValid(d.summary)||!citations(d.sources)||!['open','resolved'].includes(d.status)))throw Error('AI final review omitted an objection or failed source validation.');
  const extra=objections.map(o=>{const d=decision.decisions.find(d=>d.id===o.id);return {...o,status:d.status,resolution:d.summary,resolutionSources:d.sources}});
+ results.push({agent:3,summary:decision.summary,unknown:decision.unknown,sources:decision.sources});
  review.mode='model';review.objections.push(...extra);
  if(extra.some(o=>o.status==='open')&&!['blocked','needs-evidence'].includes(review.outcome))review.outcome='needs-evidence';
- review.exchange=[...results.map(f=>({...f,kind:f.agent===2?'Proposal':'Finding'})),...objections.map(o=>({agent:3,kind:'Challenge',summary:o.question,sources:o.sources,objectionId:o.id})),...response.answers.map(a=>({agent:0,kind:'Evidence response',...a})),...decision.decisions.map(d=>({agent:3,kind:d.status==='open'?'Still open':'Resolved',...d}))];
+ review.exchange=[...results.map(f=>({...f,kind:f.agent===3?'Independent conclusion':f.agent===2?'Proposal':'Finding'})),...objections.map(o=>({agent:3,kind:'Challenge',summary:o.question,sources:o.sources,objectionId:o.id})),...answers.map(a=>({...a,kind:'Evidence response'})),...decision.decisions.map(d=>({agent:3,kind:d.status==='open'?'Still open':'Resolved',...d}))];
  return {mode:'model',model:env.OPENAI_MODEL,findings:results,review};
 }
