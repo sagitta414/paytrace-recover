@@ -14,7 +14,8 @@ The first working example is a paid course with missing access. The app checks t
 
 - Public static demonstration: nine scenarios, a seven-purchase sample portfolio, delivery-window monitoring, distinct diagnoses, related-case filtering, editable customer drafts, and the existing reviewed recovery flow. Records and agent consultations are fictional.
 - Local Node backend: isolated cookie sessions, durable SQLite records, protected lesson-access endpoint, same-origin mutation checks, operator gate for configured integrations, serial per-session writes.
-- Setup-ready adapters: PayPal sandbox order creation/capture/fresh reads; six bounded OpenAI Responses calls with cited objections, responses, and final review; Render investigation and approved-recovery task chains.
+- Setup-ready adapters: PayPal sandbox order creation/capture/fresh reads; six to eight bounded OpenAI Responses calls with cited objections, specialist responses, and final review; Render investigation and approved-recovery task chains.
+- Merchant agent desk: a plain-language decision brief, live specialist progress, and read-only follow-up questions tied to the saved review. Model answers keep their cited source records and cannot approve or apply an access change. Follow-ups require an unlocked operator session and configured AI; the public browser demo remains scripted.
 - Automated tests cover business invariants and mocked integration contracts. **Live PayPal, OpenAI, and Render credentials were not supplied; those services have not been tested end to end.** The published Sites version is the browser simulation, not the Node service.
 
 ## Run
@@ -49,7 +50,7 @@ PayTrace Recover is a working name, not a trademark-clearance claim. This is an 
 
 ## Agent challenge round
 
-The merchant sees a compact decision card before rehearsal. Expand it for categorized objections, one response round, and source records frozen at review time. Outcomes are ready for rehearsal, needs evidence, blocked, or verify only. Existing access is checked with zero repair writes; changed evidence invalidates review and approval. Unknown timeout cause stays visible.
+The merchant sees a compact decision card before rehearsal. Expand it for categorized objections, one response round, and source records frozen at review time. The agent desk adds a short decision brief and optional cited follow-up questions. Outcomes are ready for rehearsal, needs evidence, blocked, or verify only. Existing access is checked with zero repair writes; changed evidence invalidates review and approval. Unknown timeout cause stays visible.
 
 Cases D–F demonstrate missing payment evidence, an earlier store retry restoring access, and a payment reference changing after review. Read [challenge validation](docs/CHALLENGE_ROUND.md) for invariants and the demo sequence.
 
@@ -78,4 +79,4 @@ Open `/story.html` for the interactive Merchant/Customer story, including a succ
 
 This source package incorporates upstream revision `ae216c815358b925a1a4475e99f07e1b55ab5946` and the earlier local UI fixes. Additional backend checks enforce workflow stage order, persist completed stage results for safe callback retries, reject stale case identifiers from browser tabs, validate JSON request objects and byte limits, and refresh existing sandbox captures without capturing again. Browser actions pass the selected case ID to the backend.
 
-Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL is http://127.0.0.1:4358; configure both `PORT` and `PUBLIC_URL` when choosing another port. Use `.env.example` for optional integration configuration. The complete suite contains 87 tests, including HTTP, persistence, private customer support, and mocked provider contracts. Live PayPal, AI, workflow, and email acceptance tests still require your own credentials.
+Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL is http://127.0.0.1:4358; configure both `PORT` and `PUBLIC_URL` when choosing another port. Use `.env.example` for optional integration configuration. The complete suite contains 106 tests, including HTTP, persistence, private customer support, and mocked provider contracts. Live PayPal, AI, workflow, and email acceptance tests still require your own credentials.

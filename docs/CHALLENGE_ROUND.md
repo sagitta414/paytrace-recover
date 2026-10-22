@@ -21,6 +21,8 @@ Code recomputes mandatory checks when attaching the model result. It retains det
 
 The merchant case now shows a saved run status while the model works: current specialist, received responses, and final or interrupted state. These are progress markers, not approvals or proof that the claims are accurate. The browser checks session state while an investigation request is running; a queued Render workflow can be checked with **Refresh workflow status** without waiting on the case-source lock. The investigation request has a longer timeout than ordinary requests because a complete review may take multiple model calls.
 
+After a current model-backed review, an unlocked merchant can ask one specialist a read-only question. The server refreshes source records, rejects stale reviews, sends only that review's evidence, and requires a structured answer with valid source IDs. Each saved answer includes the cited snapshot, so an older answer can still be inspected without presenting it as current. Requests use an idempotency ID and each review permits at most eight questions. A follow-up cannot rehearse, approve, grant, or verify access. Missing model configuration or a scripted review leaves this form unavailable.
+
 Schemas follow [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs). Source-ID validation does not verify factual accuracy; inspect the actual claims during live acceptance testing.
 
 ## Demonstration
