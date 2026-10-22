@@ -19,6 +19,8 @@ Without configured credentials, the server and public site label the dialogue sc
 
 Code recomputes mandatory checks when attaching the model result. It retains deterministic objections, and any open model objection adds a hold. Invalid, refused, incomplete or failed model output leaves the stored case in an incomplete-review state, never a scripted fallback that permits repair. Agent characters are roles sharing one configured model, not independent external experts.
 
+The merchant case now shows a saved run status while the model works: current specialist, received responses, and final or interrupted state. These are progress markers, not approvals or proof that the claims are accurate. The browser checks session state while an investigation request is running; a queued Render workflow can be checked with **Refresh workflow status** without waiting on the case-source lock. The investigation request has a longer timeout than ordinary requests because a complete review may take multiple model calls.
+
 Schemas follow [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs). Source-ID validation does not verify factual accuracy; inspect the actual claims during live acceptance testing.
 
 ## Demonstration

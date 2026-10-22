@@ -1,7 +1,7 @@
 export class RequestFailure extends Error{constructor(code,message){super(message);this.code=code;}}
 export function validateCase(s){if(!s||s.schema!==1||typeof s.id!=='string'||typeof s.customerName!=='string'||!s.order||typeof s.order.amount!=='number'||!s.entitlement||typeof s.entitlement.active!=='boolean'||!Array.isArray(s.events)||s.events.some(e=>typeof e.what!=='string'||typeof e.at!=='string')||s.review&&(!Array.isArray(s.review.exchange)||s.review.exchange.some(e=>!Array.isArray(e.sources)))||s.proof&&!Array.isArray(s.proof.checks))throw new RequestFailure('response','Case records were incomplete. Your previous view has been retained.');return s;}
-export function createApi({fetcher=fetch,timeoutMs=45000}={}){return async function request(path,data){
- const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);
+export function createApi({fetcher=fetch,timeoutMs=45000}={}){return async function request(path,data,{requestTimeoutMs=timeoutMs}={}){
+ const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),requestTimeoutMs);
  try{const r=await fetcher('/api/'+path,{method:data===undefined?'GET':'POST',credentials:'same-origin',headers:data===undefined?{}:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),signal:controller.signal});
   if(r.status===401)throw new RequestFailure('session','Your session is unavailable. Reload the workspace before continuing.');
   if(r.status>=500)throw new RequestFailure('service','The recovery service is unavailable. Your last loaded records are still shown.');
