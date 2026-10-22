@@ -9,6 +9,7 @@ The decision card sits beside the merchant action on desktop. Mobile puts the ne
 - Blocked: an exact purchase check fails. A model cannot override this result.
 - Verify only: access already exists for the exact payment, learner and course. Verification makes zero repair writes and requires no repair approval.
 - Stale: the evidence fingerprint changes. Prior review, preview and approval cannot authorize a new write. Source links still show the original reviewed snapshot.
+- Review interrupted: a source read, workflow dispatch, or configured model review failed before a recommendation was saved. The case returns to the attention queue with a retry action. No repair is authorized.
 
 The review does not establish the root cause of the injected timeout. That uncertainty remains visible. A resolved objection is not proof of a completed correction or a durable outcome.
 

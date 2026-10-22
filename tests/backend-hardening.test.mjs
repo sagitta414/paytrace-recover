@@ -24,7 +24,7 @@ test('workflow callbacks enforce order and completed callbacks do not regress st
 
 test('workflow retries resume a failed stage without replaying completed stages',async()=>{
  const db=openStore(':memory:');try{const {id}=db.create();db.authorize(id);let unavailable=true;const svc=createService(db,workflowEnv,{fetcher:async()=>Response.json({id:'run'}),access:(owner,s)=>{if(unavailable)throw Error('outage');return db.readAccess(owner,s);}});
- const queued=await svc.action(id,{action:'investigate'}),job=queued.state.job.id;await assert.rejects(svc.stage(id,'gather',job),/unavailable/);assert.equal(db.get(id).state.job.pending,false);
+ const queued=await svc.action(id,{action:'investigate'}),job=queued.state.job.id;await assert.rejects(svc.stage(id,'gather',job),/unavailable/);assert.equal(db.get(id).state.job.pending,false);assert.equal(db.get(id).state.phase,'review-failed');assert.equal(db.get(id).state.review,null);
  unavailable=false;await svc.stage(id,'gather',job);assert.equal(db.get(id).state.job.pending,true);await svc.stage(id,'analyze',job);await svc.stage(id,'record',job);assert.equal(db.get(id).state.phase,'investigated');
  }finally{db.close();}
 });
