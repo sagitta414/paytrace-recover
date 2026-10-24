@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCase,simulatePayment,investigate,rehearse,approve,applyRepair,verify} from '../dist/core.mjs';
-import {breakPointMap,breakPointModel} from '../dist/focus-breakpoint-map.mjs';
+import {breakPointMap,breakPointModel,purchaseComparison} from '../dist/focus-breakpoint-map.mjs';
 
 const paid=(scenario='match')=>simulatePayment(createCase(scenario));
 
@@ -36,4 +36,17 @@ test('sandbox capture needs an available provider read and source JSON is escape
  assert.equal(breakPointModel(s,{backend:true}).nodes[0].state,'confirmed');
  s.order.label='<script>alert(1)</script>';
  const html=breakPointMap(s,{backend:true});assert.doesNotMatch(html,/<script>alert/);assert.match(html,/&lt;script&gt;/);
+});
+
+test('purchase comparison pinpoints a conflicting field and does not present unavailable payment as matched',()=>{
+ const conflict=paid('conflict'),rows=purchaseComparison(conflict).rows;
+ assert.equal(rows.find(row=>row.label==='Order ID').state,'conflict');
+ assert.equal(rows.find(row=>row.label==='Amount').state,'match');
+ assert.match(breakPointMap(conflict),/Purchase evidence comparison/);
+ assert.match(breakPointMap(conflict),/Conflict/);
+ const missing=paid('missing');assert.equal(purchaseComparison(missing).counts.match,1);
+ assert.equal(purchaseComparison(missing).rows.find(row=>row.label==='Order ID').state,'unknown');
+ const sandbox=paid();sandbox.capture.source='paypal-sandbox';
+ assert.equal(purchaseComparison(sandbox,{backend:true}).rows.find(row=>row.label==='Payment status').state,'unknown');
+ assert.equal(purchaseComparison(conflict,{uncertain:true}).counts.conflict,0);
 });
