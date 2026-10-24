@@ -26,6 +26,8 @@ Reference: [Orders walkthrough](https://developer.paypal.com/checkout/put-it-all
 
 ## 3. AI review
 
+Azure OpenAI v1 is also supported: set `OPENAI_BASE_URL` to `https://YOUR-RESOURCE.openai.azure.com/openai/v1/`, put the Azure resource key in `OPENAI_API_KEY`, and use its deployment name in `OPENAI_MODEL`. The server accepts only the official OpenAI API or Azure OpenAI v1 host for case evidence. `npm run ai:smoke` validates all four specialists with fictional records before a connected case test.
+
 Configure `OPENAI_API_KEY` and `OPENAI_MODEL` with a Responses API model that supports Structured Outputs in your account. No model is silently selected. Restart, unlock the operator session, and investigate a case. The server performs six to eight bounded calls: Ledger, Relay, and Patch findings; Prism objections; responses routed to the relevant specialist; and Prism’s final resolution and independent conclusion. It validates source IDs, objection IDs, and completeness. The UI must say **AI REVIEW** and **Model-generated review**. Unanswered objections block rehearsal. A failed configured-model review does not fall back to scripted eligibility. Missing credentials produce explicitly labeled scripted samples.
 
 The Focus case's **Agent decision desk** then allows up to eight read-only questions about the current model review. Select a specialist, inspect the answer and cited snapshot, and confirm the answer has not changed eligibility or merchant approval. The form requires the unlocked operator session. A stale or scripted review cannot use model follow-ups.

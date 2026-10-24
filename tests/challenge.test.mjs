@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCase,simulatePayment,investigate,rehearse,approve,applyRepair,verify,attachAnalysis,reviewIsCurrent,changeSampleEvidence,restoreSampleEvidence} from '../dist/core.mjs';
-import {analyze,answerQuestion} from '../server/ai.mjs';
+import {analyze,answerQuestion,safetyQuestions} from '../server/ai.mjs';
 import {openStore} from '../server/store.mjs';
 import {createService} from '../server/service.mjs';
 const paid=scenario=>simulatePayment(createCase(scenario));
 const modelEnv={OPENAI_API_KEY:'test',OPENAI_MODEL:'configured-model'};
 function mockModel({open=false,omit=false,calls=[],multi=false}={}){return async(_url,o)=>{const b=JSON.parse(o.body);calls.push(b);const p=b.text.format.schema.properties,input=JSON.parse(b.input);let value;
- if(p.objections)value={objections:multi?[{question:'Does this exact payment match?',category:'identity',sources:['payment','order']},{question:'Was access already restored?',category:'duplicate',sources:['store','event']},{question:'Is the proposed grant narrow?',category:'scope',sources:['store','order']}]:[{question:'Does this exact payment match?',category:'identity',sources:['payment','order']}]};
+ if(p.objections)value={objections:multi?[{question:safetyQuestions.identity,category:'identity',sources:['payment','order']},{question:safetyQuestions.duplicate,category:'duplicate',sources:['store','event']},{question:safetyQuestions.scope,category:'scope',sources:['store','order']}]:[{question:safetyQuestions.identity,category:'identity',sources:['payment','order']}]};
  else if(p.answers)value={answers:omit?[]:input.objections.map(o=>({id:o.id,summary:'The cited records address the question.',sources:o.sources}))};
  else if(p.decisions)value={summary:open?'The identity question remains open.':'The cited payment and order answer the identity question.',unknown:'Access has not yet been changed or verified.',sources:['payment','order'],decisions:input.objections.map(o=>({id:o.id,summary:open?'Need more evidence.':'The cited records answer this objection.',sources:o.sources,status:open?'open':'resolved'}))};
  else value={summary:'Finding',unknown:'Cause unknown',sources:['payment','order']};

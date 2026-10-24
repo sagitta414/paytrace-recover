@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {openStore} from '../server/store.mjs';
 import {createService} from '../server/service.mjs';
+import {safetyQuestions} from '../server/ai.mjs';
 
 function model(){let calls=0;return async(_url,options)=>{const body=JSON.parse(options.body),input=JSON.parse(body.input),properties=body.text.format.schema.properties;calls++;let value;
- if(properties.objections)value={objections:[{question:'Does the payment match this purchase?',category:'identity',sources:['payment','order']}]};
+ if(properties.objections)value={objections:[{question:safetyQuestions.identity,category:'identity',sources:['payment','order']}]};
  else if(properties.answers)value={answers:input.objections.map(o=>({id:o.id,summary:'The cited payment and order match.',sources:['payment','order']}))};
  else if(properties.decisions)value={summary:'The payment matches; access remains missing.',unknown:'The enrollment failure cause is unknown.',sources:['payment','store'],decisions:input.objections.map(o=>({id:o.id,summary:'The exact capture matches.',sources:['payment','order'],status:'resolved'}))};
  else value={summary:'Payment and access records were reviewed.',unknown:'The root cause is unknown.',sources:['payment','order']};

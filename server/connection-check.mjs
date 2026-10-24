@@ -1,3 +1,4 @@
+import {aiEndpoint} from './ai-endpoint.mjs';
 export async function checkConnection(kind,env=process.env,fetcher=fetch){
  const checkedAt=new Date().toISOString();
  const result=(state,detail)=>({kind,state,detail,checkedAt});
@@ -9,8 +10,8 @@ export async function checkConnection(kind,env=process.env,fetcher=fetch){
    return response.ok?result('connected','Sandbox credentials were accepted. A checkout still needs a separate test.'):result('failed',`Sandbox authentication returned ${response.status}. Check the app credentials.`);
   }
   if(kind==='ai'){
-   if(!env.OPENAI_API_KEY||!env.OPENAI_MODEL)return result('not-configured','Add the AI key and model to the server.');
-   const status=await get('https://api.openai.com/v1/models/'+encodeURIComponent(env.OPENAI_MODEL),env.OPENAI_API_KEY);
+   const endpoint=aiEndpoint(env);if(!endpoint)return result('not-configured','Add the AI key and model to the server.');
+   const response=await fetcher(endpoint.modelUrl,{headers:{...endpoint.headers,Accept:'application/json'},signal:AbortSignal.timeout(12000)});const status=response.status;
    return status===200?result('connected','The configured model is accessible. An agent consultation still needs a case test.'):result('failed',`Model lookup returned ${status}. Check the key and model name.`);
   }
   if(kind==='render'){
