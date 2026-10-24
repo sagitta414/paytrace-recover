@@ -1,3 +1,4 @@
+import {workspaceCsv} from '../dist/workspace-model.mjs';
 import {originConfig} from './origins.mjs';
 import {checkConnection} from './connection-check.mjs';
 import http from 'node:http';import {readFile} from 'node:fs/promises';import path from 'node:path';import {fileURLToPath} from 'node:url';import {timingSafeEqual} from 'node:crypto';import {openStore} from './store.mjs';import {createService} from './service.mjs';
@@ -36,7 +37,10 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    if(route==='/api/support/reminders'&&req.method==='GET')return json(200,{items:store.support.reminders(session.id)});
    if(route==='/api/support'&&req.method==='GET')return json(200,store.support.view(session.id,url.searchParams.get('caseId'),true));
    if(route==='/api/case'&&req.method==='GET')return json(200,await service.caseInfo(session.id,url.searchParams.get('caseId')));
-   if(route==='/api/operations'&&req.method==='GET')return json(200,{cases:store.listCases(session.id),graceMinutes:store.grace(session.id)});
+   if(route==='/api/operations'&&req.method==='GET')return json(200,await service.operations(session.id));
+   if(route==='/api/workspace'&&req.method==='GET')return json(200,await service.overview(session.id));
+   if(route==='/api/workspace/export'&&req.method==='GET'){const csv=workspaceCsv(await service.overview(session.id));res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="paytrace-queue.csv"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(csv);}
+   if(route==='/api/case/priority'&&req.method==='GET')return json(200,store.casePriority(session.id,url.searchParams.get('caseId')));
    if(route==='/api/connection-check'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Unlock the operator session before testing configured connections.'});return json(200,await checkConnection(url.searchParams.get('kind'),env));}
    const expectedCase=url.searchParams.get('caseId');if(['/api/draft','/api/receipt','/api/lesson'].includes(route)&&expectedCase&&expectedCase!==session.state.id)return json(409,{error:'The selected case changed. Reopen it from the queue before continuing.'});
    if(route==='/api/draft'&&req.method==='GET')return json(200,service.draft(session.id));
@@ -53,6 +57,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
     return json(200,store.support.mutate(session.id,id,body,true));
    }
    if(route==='/api/support/reminder'){if(!session.operator)return json(403,{error:'Unlock the operator session first.'});return json(200,{reminder:store.support.reminder(session.id,body.caseId,body.dueAt,body.note)});}
+   if(route==='/api/case/priority')return json(200,store.setCasePriority(session.id,body.caseId,body.priority,body.expectedRevision));
    if(route==='/api/monitor/scan')return json(200,await service.scan(session.id,body));
    if(route==='/api/learner/session'){if(body.caseId!==undefined&&body.caseId!==session.state.id)return json(409,{error:'The selected case changed. Reopen it from the queue before continuing.'});if(session.state.currentAccountId&&session.state.currentAccountId!==session.state.order.userId)return json(403,{error:'Sign in with the purchasing account before opening a learner session.'});const token=store.mintLearnerToken(session.id,session.state.id);res.setHeader('Set-Cookie',`cl_learner=${token}; Path=/api/learner; HttpOnly; SameSite=Strict; Max-Age=600${publicUrl.protocol==='https:'?'; Secure':''}`);return json(200,{ok:true,mode:'Scoped demonstration learner session; not production sign-in'});}
    if(route==='/api/operator'){const entry=attempts.get(session.id)||{count:0,until:Date.now()+600000};if(Date.now()>entry.until){entry.count=0;entry.until=Date.now()+600000}entry.count++;attempts.set(session.id,entry);if(entry.count>5)return json(429,{error:'Too many attempts. Try later.'});if(!equal(body.key,env.DEMO_OPERATOR_KEY))return json(403,{error:'Operator key is not configured or does not match.'});store.authorize(session.id);return json(200,{ok:true})}
@@ -64,7 +69,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
   if(!['GET','HEAD'].includes(req.method))return json(405,{error:'Method not allowed.'});
   let pathname=decodeURIComponent(route);if(pathname.endsWith('/'))pathname+='index.html';const file=path.resolve(ROOT,'.'+pathname);if(!file.startsWith(ROOT+path.sep))return json(403,{error:'Forbidden.'});let bytes;try{bytes=await readFile(file)}catch{return json(404,{error:'Not found.'})}
   const types={'.html':'text/html; charset=utf-8','.css':'text/css','.mjs':'text/javascript','.js':'text/javascript','.svg':'image/svg+xml','.webp':'image/webp','.png':'image/png'};res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(req.method==='HEAD'?undefined:bytes);
- }catch(e){json(400,{error:e.message?.slice(0,250)||'Request failed.'})}});
+ }catch(e){json(e.status===409?409:400,{error:e.message?.slice(0,250)||'Request failed.'})}});
  let monitorTimer,mailTimer,scanning=false,mailing=false;
  server.on('listening',()=>{mailTimer=setInterval(async()=>{if(mailing)return;mailing=true;try{await store.support.flush(env,publicUrl);}catch{}finally{mailing=false;}},5000);mailTimer.unref();});server.on('close',()=>clearInterval(mailTimer));
  server.on('listening',()=>{monitorTimer=setInterval(async()=>{if(scanning)return;scanning=true;try{for(const id of store.owners())await service.scan(id).catch(()=>{});}finally{scanning=false;}},30000);monitorTimer.unref();});
