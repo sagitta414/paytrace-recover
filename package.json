@@ -1,5 +1,5 @@
 {
  "name":"courselatch","private":true,"version":"0.1.0","type":"module","engines":{"node":">=24"},
- "scripts":{"start":"node --env-file-if-exists=.env server/index.mjs","dev":"node --env-file-if-exists=.env server/index.mjs","test":"node --test --test-concurrency=1 tests/*.test.mjs","workflows":"node workflows/index.mjs","ai:smoke":"node scripts/ai-smoke.mjs"},
+ "scripts":{"start":"node --env-file-if-exists=.env server/index.mjs","dev":"node --env-file-if-exists=.env server/index.mjs","test":"node --test --test-concurrency=1 tests/*.test.mjs","workflows":"node workflows/index.mjs","ai:smoke":"node scripts/ai-smoke.mjs","ai:eval":"node scripts/ai-eval.mjs","course:smoke":"node scripts/course-smoke.mjs"},
  "dependencies":{"@renderinc/sdk":"^1.0.0"}
 }

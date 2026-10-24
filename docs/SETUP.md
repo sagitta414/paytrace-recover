@@ -44,7 +44,7 @@ Use build command `npm ci`, start command `npm start`, Node 24+, and `DATABASE_P
 
 ## 5. Render Workflows
 
-Create a Workflow service from the same repository following [Render's workflow setup](https://render.com/docs/workflows). Use build command `npm ci` and start command `npm run workflows`. The JS entry point uses the official `@renderinc/sdk/workflows` task API; the lockfile pins the installed SDK. Set the workflow's `APP_URL` to the deployed web URL. Set the same random `WORKFLOW_SECRET` on both services.
+Create a Workflow service from the same repository following [Render's workflow setup](https://render.com/docs/workflows). For the Azure-hosted demo, select the workflow-only `render-workflow.yaml` as the Blueprint file; the root `render.yaml` describes an additional Render web service. A manual Workflow uses build command `npm ci` and start command `npm run workflows`. The JS entry point uses the official `@renderinc/sdk/workflows` task API; the lockfile pins the installed SDK. Set the workflow's `APP_URL` to the deployed web URL. Set the same random `WORKFLOW_SECRET` on both services.
 
 Registered tasks: `gatherEvidence`, `consultSpecialists`, `recordFindings`, `applyApprovedRepair`, `verifyLearnerAccess`, and the two root tasks `investigate` and `recover`.
 

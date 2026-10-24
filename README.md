@@ -2,13 +2,13 @@
 
 PayTrace Recover helps merchants resolve cases where a customer paid but didn’t receive the digital access they purchased.
 
-[Public Focus dashboard demo](https://courselatch.sagitta107.chatgpt.site/focus.html) · [Setup instructions](docs/SETUP.md) · [Focus frontend and reliability](docs/FOCUS-FRONTEND.md)
+[Judge walkthrough](https://paytrace-recover-sagitta.azurewebsites.net/judge.html) · [Azure merchant workspace](https://paytrace-recover-sagitta.azurewebsites.net/focus.html) · [Public browser simulation](https://courselatch.sagitta107.chatgpt.site/focus.html) · [Setup instructions](docs/SETUP.md)
 
 The [Azure Node demo and integration checklist](docs/AZURE-DEPLOYMENT.md) documents the server-backed deployment separately from the public browser simulation.
 
 The local presentation route is `/` → `/story.html` → `/focus.html?from=story` → a private customer case link. The guided story and merchant workspace are separate examples, so their case state does not transfer. In the browser demo, the handoff opens Maya's seeded Focus case; on the server, it opens the merchant's own case queue. See the [screen-by-screen story](docs/DEMO-STORY.md).
 
-**Building the connected version? Start with the [detailed PayPal Sandbox and Render Build README](docs/BUILD-README.md).** It covers account setup, environment variables, local checkout, AI review, persistent hosting, Render Workflows, acceptance tests, troubleshooting, and release readiness.
+**Building the connected version? Start with the [current connected-demo checklist](docs/CONNECTED-DEMO.md) and [detailed PayPal Sandbox and Render Build README](docs/BUILD-README.md).** They cover account setup, environment variables, checkout, AI review, persistent hosting, Render Workflows, acceptance tests, and release readiness.
 
 An optional [separate course-access service](docs/COURSE-ACCESS.md) now lets sandbox cases read, grant, and verify access outside PayTrace's SQLite store. The repository includes a small local reference service for a two-process demo; it is not a commercial LMS connector.
 
@@ -24,9 +24,9 @@ The first working example is a paid course with missing access. The app checks t
 
 - Public static demonstration: nine scenarios, a seven-purchase sample portfolio, delivery-window monitoring, distinct diagnoses, related-case filtering, editable customer drafts, and the existing reviewed recovery flow. Records and agent consultations are fictional.
 - Local Node backend: isolated cookie sessions, durable SQLite records, protected lesson-access endpoint, same-origin mutation checks, operator gate for configured integrations, serial per-session writes.
-- Setup-ready adapters: PayPal sandbox order creation/capture/fresh reads; six to eight bounded OpenAI Responses calls with cited objections, specialist responses, and final review; Render investigation and approved-recovery task chains.
+- Setup-ready PayPal sandbox order creation/capture/fresh reads and Render investigation and approved-recovery task chains. The Azure app now runs six to eight bounded Azure OpenAI Responses calls with cited objections, specialist responses, and final review. A separate Azure reference course-access service is configured for sandbox cases.
 - Merchant agent desk: a plain-language decision brief, live specialist progress, and read-only follow-up questions tied to the saved review. Model answers keep their cited source records and cannot approve or apply an access change. Follow-ups require an unlocked operator session and configured AI; the public browser demo remains scripted.
-- Automated tests cover business invariants and mocked integration contracts. **Live PayPal, OpenAI, and Render credentials were not supplied; those services have not been tested end to end.** The published Sites version is the browser simulation, not the Node service.
+- Automated tests cover business invariants and mocked integration contracts. The Azure model-backed specialists passed a live five-scenario evaluation, and the separate course service passed authenticated and unauthorized read checks. **PayPal sandbox and Render Workflows are not configured on the Azure app; an end-to-end connected recovery has not been demonstrated.** The published Sites version remains a browser simulation.
 
 ## Run
 
@@ -72,7 +72,7 @@ Cases D–F demonstrate missing payment evidence, an earlier store retry restori
 4. **Protected-content proof:** the Node verifier makes an authenticated HTTP request using a short-lived, case/learner/course-scoped capability, checks returned lesson content, then revokes the token. The separate course-access record must agree with the purchase. This verifies our demo content service, not an external LMS or a real customer's device. The public static version explicitly simulates verification.
 5. **Customer response:** an editable evidence-based template that claims restoration only after current verification passes. Copying never sends a message. Templates are deterministic; the optional AI integration still handles specialist review.
 
-The custom investigation console is working; **AG Studio remains planned**. See [setup and prototype limits](docs/SETUP.md) before attempting a live deployment.
+The custom investigation console is working; **AG Studio remains planned**. The [judge walkthrough](dist/judge.html) separates the sample tour from the connected sandbox path. See [setup and prototype limits](docs/SETUP.md) before attempting a live deployment.
 
 ## License
 
@@ -89,4 +89,4 @@ Open `/story.html` for a seven-chapter Merchant/Customer story: a paid purchase 
 
 This source package incorporates upstream revision `ae216c815358b925a1a4475e99f07e1b55ab5946` and the earlier local UI fixes. Additional backend checks enforce workflow stage order, persist completed stage results for safe callback retries, reject stale case identifiers from browser tabs, validate JSON request objects and byte limits, and refresh existing sandbox captures without capturing again. Browser actions pass the selected case ID to the backend.
 
-Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL is http://127.0.0.1:4358; configure both `PORT` and `PUBLIC_URL` when choosing another port. Use `.env.example` for optional integration configuration. The complete suite contains 119 tests, including HTTP, persistence, private customer support, a separate local course service, mocked webhook verification, and run-report truth checks. Live PayPal, AI, workflow, and email acceptance tests still require your own credentials.
+Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL is http://127.0.0.1:4358; configure both `PORT` and `PUBLIC_URL` when choosing another port. Use `.env.example` for optional integration configuration. The automated suite covers HTTP, persistence, private customer support, a separate course service, mocked webhook verification, and run-report truth checks. Live PayPal, Render workflow, and email acceptance still require service configuration. Use `npm run ai:eval` with a server-side model key to check five fictional review outcomes without applying a repair.

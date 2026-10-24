@@ -2,6 +2,8 @@
 
 PayTrace can read and repair a sandbox purchase against a separate course service. This is optional; without `COURSE_ACCESS_URL` and `COURSE_ACCESS_API_KEY`, the built-in demo course remains the access source. Only cases created in **sandbox** mode use the separate service. The service contract is a reference integration, not a connector to an existing commercial LMS.
 
+The Azure demo runs this reference service as a separate app at `https://paytrace-course-sagitta.azurewebsites.net` on the existing App Service plan. Its own SQLite database is stored at `/home/data/paytrace-course.sqlite`. The key is stored only in both Azure apps' settings. An unauthenticated check returned HTTP 401 and a fictional authenticated read returned inactive access; no grant was written. This validates the service boundary, not a complete PayPal purchase or recovery.
+
 For a local two-process demo, start `node examples/course-service.mjs` with `COURSE_SERVICE_KEY` set to a private value of at least 16 characters. It listens on `127.0.0.1:4360` and saves its own SQLite file at `data/reference-course.sqlite`; `COURSE_SERVICE_PORT` and `COURSE_SERVICE_DATABASE` can override those defaults. In PayTrace's `.env`, set `COURSE_ACCESS_URL=http://127.0.0.1:4360` and set `COURSE_ACCESS_API_KEY` to the same private value. Start PayTrace with `npm start`. PayPal sandbox credentials and the PayTrace operator key are also required for an actual sandbox checkout. Do not commit any key or `.env` file.
 
 The adapter makes authenticated JSON POSTs to three endpoints. Each request carries `caseId`, `userId`, `courseId`, and `captureId` (null before capture). The course service must own its access records, enforce the same purchase identity on retries, and return JSON:

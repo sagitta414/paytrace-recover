@@ -1,0 +1,17 @@
+# Workflow-only Blueprint for the Azure-hosted PayTrace web app.
+# Select this file when creating a Render Blueprint; do not use render.yaml,
+# which provisions a second web app and disk.
+services:
+  - type: workflow
+    name: paytrace-recover-workflow
+    runtime: node
+    region: ohio
+    buildCommand: npm ci
+    startCommand: npm run workflows
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: APP_URL
+        value: https://paytrace-recover-sagitta.azurewebsites.net
+      - key: WORKFLOW_SECRET
+        sync: false

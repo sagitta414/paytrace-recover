@@ -45,6 +45,7 @@ export function createCourseService({key,file='./data/reference-course.sqlite'}=
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const {server}=createCourseService({key:process.env.COURSE_SERVICE_KEY,file:process.env.COURSE_SERVICE_DATABASE||'./data/reference-course.sqlite'});
-  const port=Number(process.env.COURSE_SERVICE_PORT||4360);
-  server.listen(port,'127.0.0.1',()=>console.log(`Reference course service listening on http://127.0.0.1:${port}`));
+  const port=Number(process.env.PORT||process.env.COURSE_SERVICE_PORT||4360);
+  const host=process.env.COURSE_SERVICE_HOST||'127.0.0.1';
+  server.listen(port,host,()=>console.log(`Reference course service listening on ${host}:${port}`));
 }
