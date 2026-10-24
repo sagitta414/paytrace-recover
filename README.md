@@ -16,6 +16,8 @@ Optional [PayPal sandbox webhook intake](docs/PAYPAL-WEBHOOKS.md) verifies captu
 
 The Focus workspace now shows a downloadable [recovery run report](docs/RUN-REPORT.md) that labels each saved payment, access, AI, approval, Render, and lesson check as connected, demo, or incomplete.
 
+The merchant case view also includes an interactive Break Point Map from PayPal capture to protected lesson. Each step exposes its saved source record, evidence status, check time when available, and responsible specialist. The highlighted step identifies the first actionable break without claiming its underlying cause. Browser samples, server demo records, and connected sandbox reads are labeled separately; unavailable sources and stale proof remain unknown.
+
 The public link runs a browser simulation using fictional records. Run the Node backend below to explore server-backed recovery; external integrations require your own sandbox credentials.
 
 The first working example is a paid course with missing access. The app checks the evidence, rehearses the smallest correction on a copy, asks the merchant to approve the exact change, applies it once, and checks the outcome. Memberships and downloads are future directions to validate, not supported connectors.
