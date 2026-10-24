@@ -3,19 +3,66 @@ import {newCase,validateNewCase} from '../dist/new-case-model.mjs';
 import {randomUUID} from 'node:crypto';
 import {createCase,simulatePayment,investigate,rehearse,approve,applyRepair,verify,canOpenLesson,record,fingerprint,reviewIsCurrent,attachAnalysis,changeSampleEvidence,restoreSampleEvidence} from '../dist/core.mjs';
 import {analyze,answerQuestion} from './ai.mjs';import {paypalClient} from './paypal.mjs';
-import {scanCases,customerDraft,recoveryReceipt} from '../dist/operations.mjs';
+import {courseAccessClient} from './course-access.mjs';
+import {scanCases,customerDraft,recoveryReceipt,proofIsCurrent} from '../dist/operations.mjs';
 import {validateGrace} from '../dist/diagnosis.mjs';
-export function createService(store,env=process.env,{fetcher=fetch,paypal=paypalClient(env,fetcher),probe,access=(owner,s)=>store.readAccess(owner,s)}={}){
+import {buildRunReport} from '../dist/run-report.mjs';
+export function createService(store,env=process.env,{fetcher=fetch,paypal=paypalClient(env,fetcher),probe,access=(owner,s)=>store.readAccess(owner,s),course=courseAccessClient(env,fetcher)}={}){
  const workflowReady=()=>!!(env.RENDER_API_KEY&&env.RENDER_INVESTIGATE_TASK&&env.RENDER_RECOVER_TASK&&env.WORKFLOW_SECRET);
+ const external=s=>Boolean(course&&s.intakeMode==='sandbox');
  function beginAgentRun(s,id,operator){s.agentRun={mode:operator&&env.OPENAI_API_KEY&&env.OPENAI_MODEL?'model':'scripted',status:'running',step:'evidence',agent:null,completed:[],startedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};store.save(id,s);}
  function agentProgress(s,id){return async({agent,step,status})=>{s.agentRun={...s.agentRun,status:'running',step,agent,completed:status==='completed'?[...s.agentRun.completed,step]:s.agentRun.completed,updatedAt:new Date().toISOString()};store.save(id,s);};}
  function finishAgentRun(s,id){s.agentRun={...s.agentRun,status:'complete',step:'done',agent:null,updatedAt:new Date().toISOString()};store.save(id,s);}
  function failAgentRun(s,id){s.agentRun={...(s.agentRun||{mode:'unknown',completed:[],startedAt:new Date().toISOString()}),status:'failed',updatedAt:new Date().toISOString()};store.save(id,s);}
- async function fresh(s,id){const ok=await readCaseSources(s,id,{paypal,access});store.saveCase(id,s);if(!ok)throw Error('Payment or course access records are unavailable. Refresh both systems before continuing.');}
- function lesson(id){return store.lesson(id);}
- async function verifyFresh(id){const s=store.get(id).state;let available=true;try{await fresh(s,id)}catch{available=false}store.save(id,s);if(s.scenario==='read-error'&&s.reads===0)available=false;let resource=null,access=false;const token=store.mintLearnerToken(id,s.id,30000);try{resource=probe?await probe(token):store.readLearnerToken(token);access=resource?.accessible===true&&resource.userId===s.order.userId&&resource.courseId===s.order.courseId&&resource.captureId===s.capture?.id&&resource.contentId==='light-lesson-01'&&typeof resource.body==='string'&&resource.body.length>20;}catch{}finally{store.revokeLearnerToken(token);}verify(s,{paymentAvailable:available,lessonAvailable:access,transport:probe?'authenticated-http':'scoped-content-adapter',resource:access?{contentId:resource.contentId,userId:resource.userId,courseId:resource.courseId}:null});store.save(id,s);return s}
+ async function fresh(s,id){const ok=await readCaseSources(s,id,{paypal,access:(owner,state)=>external(state)?course.check(state):access(owner,state),accessSystem:external(s)?'External course access service':'Course access service'});store.saveCase(id,s);if(!ok)throw Error('Payment or course access records are unavailable. Refresh both systems before continuing.');}
+ async function repairApproved(s,id){
+  await fresh(s,id);
+  if(s.writes>0)return;
+  if(!s.approval||s.phase!=='approved'||s.approval.fingerprint!==fingerprint(s))throw Error('Approval or fresh evidence is missing or has changed.');
+  if(external(s)){
+   // The external service must confirm the grant before PayTrace records a write.
+   // A timeout leaves approval visible and requires a fresh read before retry.
+   const granted=await course.grant(s);
+   applyRepair(s);
+   s.entitlement=granted;
+   store.save(id,s);
+  }else{applyRepair(s);store.grant(id,s);}
+ }
+ function lesson(id){const s=store.get(id)?.state;if(!s)throw Error('No session.');return external(s)?course.probe(s):store.lesson(id);}
+ async function customerLesson(id,caseId){const s=store.caseById(id,caseId);if(!external(s))return store.support.lesson(id,caseId);if(!proofIsCurrent(s)||s.evidenceAvailable===false||Object.values(s.sources||{}).some(x=>x?.status==='unavailable'))throw Error('Access is still being checked.');const value=await course.probe(s);if(value?.accessible!==true||value.userId!==s.order.userId||value.courseId!==s.order.courseId||value.captureId!==s.capture.id||value.contentId!=='light-lesson-01'||typeof value.body!=='string'||value.body.length<=20)throw Error('Protected course content could not be confirmed.');return {accessible:true,title:value.title||'Your purchased lesson',body:value.body,lesson:value.lesson||'Purchased lesson',contentId:value.contentId};}
+ async function verifyFresh(id){const s=store.get(id).state;let available=true;try{await fresh(s,id)}catch{available=false}store.save(id,s);if(s.scenario==='read-error'&&s.reads===0)available=false;let resource=null,access=false,transport;if(external(s)){transport='external-course-service';try{resource=await course.probe(s)}catch{}}else{transport=probe?'authenticated-http':'scoped-content-adapter';const token=store.mintLearnerToken(id,s.id,30000);try{resource=probe?await probe(token):store.readLearnerToken(token)}catch{}finally{store.revokeLearnerToken(token);}}access=resource?.accessible===true&&resource.userId===s.order.userId&&resource.courseId===s.order.courseId&&resource.captureId===s.capture?.id&&resource.contentId==='light-lesson-01'&&typeof resource.body==='string'&&resource.body.length>20;verify(s,{paymentAvailable:available,lessonAvailable:access,transport,resource:access?{contentId:resource.contentId,userId:resource.userId,courseId:resource.courseId}:null});store.save(id,s);return s}
  async function scan(id,{graceMinutes}={}){return store.lock(id,async()=>{if(graceMinutes!==undefined)store.setGrace(id,validateGrace(graceMinutes));const cases=store.listCases(id);for(const s of cases){if(s.job?.pending)continue;const before=fingerprint(s);if(s.capture?.source==='paypal-sandbox'){try{await fresh(s,id);}catch{}}if(before!==fingerprint(s)&&s.review){s.approval=null;s.rehearsal=null;s.proof=null;s.phase='stale';}}
    scanCases(cases,{graceMinutes:store.grace(id)});for(const s of cases)store.saveCase(id,s);return {cases,graceMinutes:store.grace(id),checkedAt:new Date().toISOString()};});}
+ async function autoTriage(id){
+  if(!env.OPENAI_API_KEY||!env.OPENAI_MODEL)return {status:'ai-not-configured'};
+  return store.lock(id,async()=>{
+   if(!store.get(id)?.operator)return {status:'operator-required'};
+   const cases=store.listCases(id),candidate=cases.find(s=>s.intakeMode==='sandbox'&&s.capture?.source==='paypal-sandbox'&&s.monitor?.status==='attention'&&!s.review&&!s.job?.pending&&(!s.automation?.nextAttemptAt||Date.parse(s.automation.nextAttemptAt)<=Date.now()));
+   if(!candidate)return {status:'nothing-due'};
+   const s=candidate,now=new Date().toISOString();
+   s.automation={...(s.automation||{}),status:'investigating',startedAt:now,attempts:(s.automation?.attempts||0)+1};
+   record(s,'Automatic investigation started after the delivery window. No access change was authorized.');
+   store.saveCase(id,s);
+   try{
+    await fresh(s,id);
+    if(s.monitor?.status!=='attention'||s.entitlement?.active)return {status:'no-longer-missing'};
+    investigate(s);s.review=null;s.phase='reviewing';
+    s.agentRun={mode:'model',status:'running',step:'evidence',agent:null,completed:[],startedAt:now,updatedAt:now};store.saveCase(id,s);
+    const progress=async({agent,step,status})=>{s.agentRun={...s.agentRun,step,agent,completed:status==='completed'?[...s.agentRun.completed,step]:s.agentRun.completed,updatedAt:new Date().toISOString()};store.saveCase(id,s);};
+    attachAnalysis(s,await analyze(s,env,fetcher,progress));
+    s.agentRun={...s.agentRun,status:'complete',step:'done',agent:null,updatedAt:new Date().toISOString()};
+    s.automation={...s.automation,status:'awaiting-merchant',completedAt:new Date().toISOString(),nextAttemptAt:null};
+    record(s,'Automatic evidence review completed. Merchant approval is required for any correction.');
+    store.saveCase(id,s);return {status:'awaiting-merchant',caseId:s.id};
+   }catch(e){
+    s.review=null;s.analysis=null;s.phase='review-failed';
+    s.agentRun={...(s.agentRun||{}),status:'failed',updatedAt:new Date().toISOString()};
+    s.automation={...s.automation,status:'needs-attention',nextAttemptAt:new Date(Date.now()+5*60000).toISOString(),error:'Investigation could not complete. Retry after checking both connections.'};
+    record(s,'Automatic investigation needs attention. No access change was authorized.');
+    store.saveCase(id,s);return {status:'needs-attention',caseId:s.id};
+   }
+  });
+ }
  async function stage(id,step,jobId){return store.lock(id,async()=>{
   const row=store.get(id);if(!row)throw Error('Session not found.');let s=row.state;
   if(!jobId||s.job?.id!==jobId||s.job.caseId!==s.id)throw Error('Workflow is obsolete.');
@@ -30,7 +77,7 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
    if(step==='gather'){await fresh(s,id);investigate(s);s.review=null;s.phase='reviewing';result={fingerprint:fingerprint(s)};}
    if(step==='analyze'){s.review=null;s.phase='reviewing';beginAgentRun(s,id,true);attachAnalysis(s,await analyze(s,env,fetcher,agentProgress(s,id)));finishAgentRun(s,id);result={mode:s.analysis.mode};}
    if(step==='record'){record(s,'Investigation workflow completed. Merchant decision required.');result={phase:s.phase};}
-   if(step==='repair'){await fresh(s,id);applyRepair(s);store.grant(id,s);result={writes:s.writes};}
+   if(step==='repair'){await repairApproved(s,id);result={writes:s.writes};}
    if(step==='verify'){s=await verifyFresh(id);result={verified:s.phase==='verified',writes:s.writes};}
    s.job={...s.job,completed:{...s.job.completed,[step]:result},pending:step!==steps.at(-1),error:null};
    store.save(id,s);return result;
@@ -55,13 +102,39 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
    case 'restore-evidence':restoreSampleEvidence(s);break;
    case 'rehearse':await fresh(s,id);rehearse(s);break;
    case 'approve':await fresh(s,id);approve(s,body.planId);break;
-   case 'repair':if(!s.approval)throw Error('Merchant approval is required.');if(row.operator&&workflowReady())return enqueue(id,'recover');await fresh(s,id);applyRepair(s);store.grant(id,s);s=await verifyFresh(id);break;
+   case 'repair':if(!s.approval)throw Error('Merchant approval is required.');if(row.operator&&workflowReady())return enqueue(id,'recover');await repairApproved(s,id);s=await verifyFresh(id);break;
    case 'verify':s=await verifyFresh(id);break;
    default:throw Error('Unknown action.');
   }store.save(id,s);if(body.action==='scenario')store.seedAccess(id,s);return {state:s}})}
  async function paypalCreate(id,caseId){return store.lock(id,async()=>{const row=store.get(id);if(!row?.operator)throw Error('Unlock the operator session first.');const s=row.state;if(caseId!==undefined&&caseId!==s.id)throw Error('The selected case changed. Reopen it from the queue before continuing.');if(s.capture)throw Error('This purchase already has a payment.');if(!s.paypalOrderId){s.paypalOrderId=await paypal.create(s);store.save(id,s)}return {id:s.paypalOrderId}})}
  async function paypalCapture(id,orderId,caseId){return store.lock(id,async()=>{const row=store.get(id);if(!row?.operator)throw Error('Unlock the operator session first.');const s=row.state;if(caseId!==undefined&&caseId!==s.id)throw Error('The selected case changed. Reopen it from the queue before continuing.');if(!s.paypalOrderId||s.paypalOrderId!==orderId)throw Error('Sandbox order does not belong to this session.');if(!s.capture){s.capture=await paypal.capture(s);s.paidAt=new Date().toISOString();s.revision++;s.phase='paid';record(s,'PayPal sandbox capture saved; deliberate entitlement failure injected.');store.save(id,s)}else{await fresh(s,id);store.save(id,s)}return {state:s}})}
- async function caseInfo(id,caseId){return store.lock(id,async()=>{const s=store.get(id).state;if(s.id!==caseId)throw Error('The selected case changed. Reopen it from the queue.');if(!s.job?.pending)await readCaseSources(s,id,{paypal,access});store.save(id,s);return {state:s};});}
+ async function paypalWebhook(event){
+  if(event?.event_type!=='PAYMENT.CAPTURE.COMPLETED')return {status:'ignored'};
+  const eventId=event.id,orderId=event.resource?.supplementary_data?.related_ids?.order_id,captureId=event.resource?.id;
+  if(![eventId,orderId,captureId].every(x=>typeof x==='string'&&/^[A-Za-z0-9-]{5,128}$/.test(x))||event.resource?.status!=='COMPLETED')throw Error('Capture event lacks an exact payment reference.');
+  if(store.webhookSeen(eventId))return {status:'duplicate'};
+  const matches=store.findByPaypalOrder(orderId);
+  if(matches.length!==1)return {status:'unmatched'};
+  const {owner,id:caseId}=matches[0];
+  return store.lock(owner,async()=>{
+   if(store.webhookSeen(eventId))return {status:'duplicate'};
+   const s=store.caseById(owner,caseId);
+   if(s.intakeMode!=='sandbox'||s.paypalOrderId!==orderId||s.capture&&s.capture.id!==captureId)throw Error('Webhook does not match the saved sandbox purchase.');
+   // The event is a trigger only. Confirm order ownership and capture status by API.
+   const current=await paypal.refresh(s);
+   if(current.id!==captureId||current.status!=='COMPLETED'||current.orderId!==s.order.id||current.userId!==s.order.userId||current.courseId!==s.order.courseId||current.amount!==s.order.amount||current.currency!==s.order.currency)throw Error('Fresh PayPal capture does not match this purchase.');
+   const wasPaid=!!s.capture;
+   s.capture=current;
+   s.paymentSignal={source:'paypal-sandbox-webhook',eventId,confirmedAt:new Date().toISOString()};
+   if(!wasPaid){s.paidAt=new Date().toISOString();s.revision++;s.phase='paid';record(s,'PayPal sandbox capture confirmed from a signed event; access check started.');}
+   try{await fresh(s,owner);}catch{record(s,'Payment confirmed, but current course access could not be read. No repair was made.');}
+   scanCases([s],{graceMinutes:store.grace(owner)});
+   store.saveCase(owner,s);
+   store.markWebhook(eventId,owner,caseId);
+   return {status:'processed',caseId,access:s.sources?.access?.status||'unavailable',monitor:s.monitor?.status||null};
+  });
+ }
+ async function caseInfo(id,caseId){return store.lock(id,async()=>{const s=store.get(id).state;if(s.id!==caseId)throw Error('The selected case changed. Reopen it from the queue.');if(!s.job?.pending)await readCaseSources(s,id,{paypal,access:(owner,state)=>external(state)?course.check(state):access(owner,state),accessSystem:external(s)?'External course access service':'Course access service'});store.save(id,s);return {state:s};});}
  async function agentQuestion(id,{caseId,agent,question,requestId}={}){return store.lock(id,async()=>{const row=store.get(id);if(!row?.operator)throw Error('Unlock the operator session before asking an AI specialist.');const s=row.state;if(caseId!==s.id)throw Error('The selected case changed. Reopen it from the queue.');if(s.job?.pending)throw Error('Wait for the current workflow to finish.');if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId))throw Error('A valid request ID is required.');await fresh(s,id);if(!reviewIsCurrent(s)||s.review?.mode!=='model'||s.analysis?.mode!=='model')throw Error('Run a current model-backed review before asking a specialist.');const prior=(s.agentQuestions||[]).find(item=>item.id===requestId);if(prior){if(prior.agent!==agent||prior.question!==question?.trim()||prior.reviewFingerprint!==s.review.fingerprint)throw Error('This request ID belongs to a different question.');return {state:s,answer:prior};}if((s.agentQuestions||[]).filter(item=>item.reviewFingerprint===s.review.fingerprint).length>=8)throw Error('This review has reached its eight-question limit.');const response=await answerQuestion(s,agent,question,env,fetcher);const entry={id:requestId,...response,reviewFingerprint:s.review.fingerprint,citedSnapshot:Object.fromEntries(response.sources.map(source=>[source,structuredClone(s.review.snapshot[source])])),at:new Date().toISOString(),mode:'model'};s.agentQuestions=[...(s.agentQuestions||[]),entry].slice(-20);record(s,`Merchant asked ${['Ledger','Relay','Patch','Prism'][agent]} a read-only follow-up. No access change was requested.`);store.save(id,s);return {state:s,answer:entry};});}
- return {caseInfo,action,stage,lesson,paypalCreate,paypalCapture,scan,agentQuestion,draft:id=>customerDraft(store.get(id).state,{mode:'server-demo'}),receipt:id=>recoveryReceipt(store.get(id).state,{mode:'server-demo'})};
+ return {caseInfo,action,stage,lesson,customerLesson,paypalCreate,paypalCapture,paypalWebhook,scan,autoTriage,agentQuestion,draft:id=>customerDraft(store.get(id).state,{mode:'server-demo'}),receipt:id=>recoveryReceipt(store.get(id).state,{mode:'server-demo'}),runReport:id=>buildRunReport(store.get(id).state,{backend:true})};
 }

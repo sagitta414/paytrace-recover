@@ -1,0 +1,11 @@
+export function mountAutomation(root,state,{backend=false}={}){
+ if(!backend||!state)return;
+ const target=root.querySelector('.sheet-body');if(!target)return;
+ const a=state.automation;
+ const card=document.createElement('section');card.className='automation-card';card.setAttribute('aria-label','Automation status');
+ const eyebrow=document.createElement('span');eyebrow.className='eyebrow';eyebrow.textContent='AUTOMATION TRAIL';card.append(eyebrow);
+ const title=document.createElement('h2');title.textContent=a?.status==='investigating'?'Specialists are reviewing the evidence':a?.status==='awaiting-merchant'?'Review ready for your decision':a?.status==='needs-attention'?'The automatic review needs attention':state.monitor?.status==='waiting'?'Watching the delivery window':state.monitor?.status==='attention'?'Missing access detected':'Watching payment and access';card.append(title);
+ const detail=document.createElement('p');detail.textContent=a?.status==='investigating'?'PayPal and course records are being checked. No access change is authorized.':a?.status==='awaiting-merchant'?'The evidence review is complete. Only you can approve the exact correction.':a?.status==='needs-attention'?'The investigation stopped safely. Check the connections, then retry the evidence review.':state.monitor?.status==='waiting'?'The purchase is still inside its delivery window. We will check again automatically.':state.monitor?.status==='attention'?'The payment is complete and access is missing. Review the evidence to decide what happens next.':'PayTrace checks known purchases for missing digital access.';card.append(detail);
+ const steps=document.createElement('div');steps.className='automation-steps';for(const [label,complete] of [['Payment confirmed',state.capture?.status==='COMPLETED'],['Missing access detected',!!state.monitor?.detectedAt],['AI review',a?.status==='awaiting-merchant'||!!state.review],['Merchant approval',!!state.approval],['Lesson verified',state.phase==='verified'&&state.proof?.passed]]){const step=document.createElement('span');step.className=complete?'done':'';step.textContent=(complete?'✓ ':'○ ')+label;steps.append(step);}card.append(steps);
+ target.prepend(card);
+}

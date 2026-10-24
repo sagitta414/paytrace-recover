@@ -1,0 +1,7 @@
+# Recovery run report
+
+Open a case in the Focus workspace and scroll to **Run report**. Its six checks show which evidence came from a connected sandbox path and which still uses local or scripted demo behavior. Downloading the JSON from a server-backed case calls `GET /api/run-report?caseId=<selected-case>`; the backend computes the report from the selected session's saved case. The browser-only version is explicitly marked as a simulation.
+
+A case earns **Connected sandbox recovery evidenced** only when all six checks pass: an exact PayPal sandbox capture was reread; a separate course-service entitlement matches; a model-backed specialist review was saved; the merchant approved the previewed grant; a Render recovery run recorded successful repair and verification stages; and a current protected-lesson proof came from that separate course service. A webhook event is optional and appears as payment provenance when present.
+
+The report includes source timestamps and limited references such as capture, plan, workflow run, and lesson IDs. It does not include API keys or customer email. A passed check describes **saved evidence at that time**. It is not a fresh provider query, a promise of ongoing access, proof of customer device delivery, or a production-readiness certificate. The local automated suite uses mocked providers and cannot substitute for a live PayPal sandbox checkout, actual model calls, Render task runs, and a deployed course service.

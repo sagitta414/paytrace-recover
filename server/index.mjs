@@ -1,15 +1,28 @@
 import {originConfig} from './origins.mjs';
 import {checkConnection} from './connection-check.mjs';
+import {paypalClient} from './paypal.mjs';
 import http from 'node:http';import {readFile} from 'node:fs/promises';import path from 'node:path';import {fileURLToPath} from 'node:url';import {timingSafeEqual} from 'node:crypto';import {openStore} from './store.mjs';import {createService} from './service.mjs';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../dist');
-export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./data/courselatch.sqlite')){
- const service=createService(store,env,{probe:async token=>{const address=server.address();if(!address||typeof address==='string')throw Error('Content service unavailable.');const r=await fetch(`http://127.0.0.1:${address.port}/api/learner/content`,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Protected content could not be retrieved.');return r.json();}}),attempts=new Map();const originPolicy=originConfig(env),publicUrl=originPolicy.publicUrl;
+export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./data/courselatch.sqlite'),options={}){
+ const paypal=options.paypal||paypalClient(env,options.fetcher||fetch);
+ const service=createService(store,env,{paypal,probe:async token=>{const address=server.address();if(!address||typeof address==='string')throw Error('Content service unavailable.');const r=await fetch(`http://127.0.0.1:${address.port}/api/learner/content`,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Protected content could not be retrieved.');return r.json();}}),attempts=new Map();const originPolicy=originConfig(env),publicUrl=originPolicy.publicUrl;
  function equal(a,b){if(!a||!b)return false;const aa=Buffer.from(a),bb=Buffer.from(b);return aa.length===bb.length&&timingSafeEqual(aa,bb)}
  const server=http.createServer(async(req,res)=>{const json=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value))};try{
   const url=new URL(req.url,publicUrl);const route=url.pathname;
   if(route==='/health')return json(200,{ok:true});
+  if(route==='/api/paypal/webhook'){
+   if(req.method!=='POST')return json(405,{error:'POST required.'});
+   if(!env.PAYPAL_WEBHOOK_ID||!env.PAYPAL_CLIENT_ID||!env.PAYPAL_CLIENT_SECRET)return json(503,{error:'PayPal sandbox webhook is not configured.'});
+   if(String(req.headers['content-type']).split(';')[0].trim().toLowerCase()!=='application/json')return json(415,{error:'JSON required.'});
+   const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>65536)return json(413,{error:'Webhook event is too large.'});chunks.push(chunk);}
+   const raw=Buffer.concat(chunks).toString('utf8');let event;try{event=JSON.parse(raw)}catch{return json(400,{error:'Invalid webhook JSON.'})}
+   if(!event||typeof event!=='object'||Array.isArray(event))return json(400,{error:'A webhook event object is required.'});
+   let verified;try{verified=await paypal.verifyWebhook(raw,req.headers)}catch{return json(503,{error:'PayPal signature check is unavailable. Retry delivery.'})}
+   if(!verified)return json(401,{error:'PayPal signature verification failed.'});
+   try{const result=await service.paypalWebhook(event);if(result.status==='processed'){const owner=store.findByPaypalOrder(event.resource.supplementary_data.related_ids.order_id)[0]?.owner;if(owner)setImmediate(()=>service.autoTriage(owner).catch(()=>{}));}return json(200,result)}catch{return json(503,{error:'Webhook processing could not be confirmed. Retry delivery.'})}
+  }
   if(route==='/api/learner/content'){if(req.method!=='GET')return json(405,{error:'GET required.'});const token=req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('cl_learner='))?.slice(11);try{return json(200,store.readLearnerToken(token));}catch{return json(403,{error:'Learner authentication or course access is missing.'});}}
-  if(route==='/runtime.js'){const config={backend:true,paypal:!!(env.PAYPAL_CLIENT_ID&&env.PAYPAL_CLIENT_SECRET),paypalClientId:env.PAYPAL_CLIENT_ID||'',ai:!!(env.OPENAI_API_KEY&&env.OPENAI_MODEL),workflows:!!(env.RENDER_API_KEY&&env.WORKFLOW_SECRET&&env.RENDER_INVESTIGATE_TASK&&env.RENDER_RECOVER_TASK)};res.writeHead(200,{'Content-Type':'text/javascript','Cache-Control':'no-store'});return res.end('window.COURSELATCH_RUNTIME='+JSON.stringify(config)+';')}
+  if(route==='/runtime.js'){const config={backend:true,paypal:!!(env.PAYPAL_CLIENT_ID&&env.PAYPAL_CLIENT_SECRET),paypalClientId:env.PAYPAL_CLIENT_ID||'',courseAccess:!!(env.COURSE_ACCESS_URL&&env.COURSE_ACCESS_API_KEY),ai:!!(env.OPENAI_API_KEY&&env.OPENAI_MODEL),workflows:!!(env.RENDER_API_KEY&&env.WORKFLOW_SECRET&&env.RENDER_INVESTIGATE_TASK&&env.RENDER_RECOVER_TASK)};res.writeHead(200,{'Content-Type':'text/javascript','Cache-Control':'no-store'});return res.end('window.COURSELATCH_RUNTIME='+JSON.stringify(config)+';')}
   if(route.startsWith('/api/')){
    if(!['GET','POST'].includes(req.method))return json(405,{error:'Method not allowed.'});
    const internal=route==='/api/internal/stage';
@@ -25,7 +38,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
     const token=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('pt_customer='))?.slice(12);let identity;try{identity=store.support.authenticate(token);}catch{return json(401,{error:'Open your private link or request a new one to view this case.'});}
     const expected=body.caseId||url.searchParams.get('caseId');if(expected&&expected!==identity.case_id)return json(409,{error:'A different customer case is open in this browser. Reopen the private link for this case before continuing.'});
     if(route==='/api/customer/case'&&req.method==='GET')return json(200,store.support.view(identity.owner,identity.case_id));
-    if(route==='/api/customer/lesson'&&req.method==='GET')return json(200,store.support.lesson(identity.owner,identity.case_id));
+    if(route==='/api/customer/lesson'&&req.method==='GET')return json(200,await service.customerLesson(identity.owner,identity.case_id));
     if(route==='/api/customer/message'&&req.method==='POST')return json(200,store.support.mutate(identity.owner,identity.case_id,body));
     return json(404,{error:'Endpoint not found.'});
    }
@@ -38,10 +51,11 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    if(route==='/api/case'&&req.method==='GET')return json(200,await service.caseInfo(session.id,url.searchParams.get('caseId')));
    if(route==='/api/operations'&&req.method==='GET')return json(200,{cases:store.listCases(session.id),graceMinutes:store.grace(session.id)});
    if(route==='/api/connection-check'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Unlock the operator session before testing configured connections.'});return json(200,await checkConnection(url.searchParams.get('kind'),env));}
-   const expectedCase=url.searchParams.get('caseId');if(['/api/draft','/api/receipt','/api/lesson'].includes(route)&&expectedCase&&expectedCase!==session.state.id)return json(409,{error:'The selected case changed. Reopen it from the queue before continuing.'});
+   const expectedCase=url.searchParams.get('caseId');if(['/api/draft','/api/receipt','/api/run-report','/api/lesson'].includes(route)&&expectedCase&&expectedCase!==session.state.id)return json(409,{error:'The selected case changed. Reopen it from the queue before continuing.'});
    if(route==='/api/draft'&&req.method==='GET')return json(200,service.draft(session.id));
    if(route==='/api/receipt'&&req.method==='GET')return json(200,service.receipt(session.id));
-   if(route==='/api/lesson'&&req.method==='GET'){try{return json(200,service.lesson(session.id))}catch{return json(403,{error:'Course access is locked.'})}}
+   if(route==='/api/run-report'&&req.method==='GET')return json(200,service.runReport(session.id));
+   if(route==='/api/lesson'&&req.method==='GET'){try{return json(200,await service.lesson(session.id))}catch{return json(403,{error:'Course access is locked.'})}}
    if(req.method!=='POST')return json(405,{error:'POST required.'});
    if(route==='/api/support'){
     if(!session.operator)return json(403,{error:'Unlock the operator session in the checkout & setup desk first.'});
@@ -53,13 +67,13 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
     return json(200,store.support.mutate(session.id,id,body,true));
    }
    if(route==='/api/support/reminder'){if(!session.operator)return json(403,{error:'Unlock the operator session first.'});return json(200,{reminder:store.support.reminder(session.id,body.caseId,body.dueAt,body.note)});}
-   if(route==='/api/monitor/scan')return json(200,await service.scan(session.id,body));
+   if(route==='/api/monitor/scan'){const result=await service.scan(session.id,body);setImmediate(()=>service.autoTriage(session.id).catch(()=>{}));return json(200,result)}
    if(route==='/api/learner/session'){if(body.caseId!==undefined&&body.caseId!==session.state.id)return json(409,{error:'The selected case changed. Reopen it from the queue before continuing.'});if(session.state.currentAccountId&&session.state.currentAccountId!==session.state.order.userId)return json(403,{error:'Sign in with the purchasing account before opening a learner session.'});const token=store.mintLearnerToken(session.id,session.state.id);res.setHeader('Set-Cookie',`cl_learner=${token}; Path=/api/learner; HttpOnly; SameSite=Strict; Max-Age=600${publicUrl.protocol==='https:'?'; Secure':''}`);return json(200,{ok:true,mode:'Scoped demonstration learner session; not production sign-in'});}
    if(route==='/api/operator'){const entry=attempts.get(session.id)||{count:0,until:Date.now()+600000};if(Date.now()>entry.until){entry.count=0;entry.until=Date.now()+600000}entry.count++;attempts.set(session.id,entry);if(entry.count>5)return json(429,{error:'Too many attempts. Try later.'});if(!equal(body.key,env.DEMO_OPERATOR_KEY))return json(403,{error:'Operator key is not configured or does not match.'});store.authorize(session.id);return json(200,{ok:true})}
    if(route==='/api/agent/question'){if(!session.operator)return json(403,{error:'Unlock the operator session before asking an AI specialist.'});return json(200,await service.agentQuestion(session.id,body));}
    if(route==='/api/action')return json(200,await service.action(session.id,body));
    if(route==='/api/paypal/create')return json(200,await service.paypalCreate(session.id,body.caseId));
-   if(route==='/api/paypal/capture'){const result=await service.paypalCapture(session.id,body.orderId,body.caseId);await service.scan(session.id);return json(200,result);}
+   if(route==='/api/paypal/capture'){const result=await service.paypalCapture(session.id,body.orderId,body.caseId);await service.scan(session.id);setImmediate(()=>service.autoTriage(session.id).catch(()=>{}));return json(200,result);}
    return json(404,{error:'Endpoint not found.'});
   }
   if(!['GET','HEAD'].includes(req.method))return json(405,{error:'Method not allowed.'});
@@ -68,7 +82,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
  }catch(e){json(400,{error:e.message?.slice(0,250)||'Request failed.'})}});
  let monitorTimer,mailTimer,scanning=false,mailing=false;
  server.on('listening',()=>{mailTimer=setInterval(async()=>{if(mailing)return;mailing=true;try{await store.support.flush(env,publicUrl);}catch{}finally{mailing=false;}},5000);mailTimer.unref();});server.on('close',()=>clearInterval(mailTimer));
- server.on('listening',()=>{monitorTimer=setInterval(async()=>{if(scanning)return;scanning=true;try{for(const id of store.owners())await service.scan(id).catch(()=>{});}finally{scanning=false;}},30000);monitorTimer.unref();});
+ server.on('listening',()=>{monitorTimer=setInterval(async()=>{if(scanning)return;scanning=true;try{for(const id of store.owners()){await service.scan(id).catch(()=>{});await service.autoTriage(id).catch(()=>{});}}finally{scanning=false;}},30000);monitorTimer.unref();});
  server.on('close',()=>clearInterval(monitorTimer));return {server,store,service};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){const {server}=createApp();server.listen(Number(process.env.PORT||4358),'0.0.0.0',()=>console.log('PayTrace Recover: '+(process.env.PUBLIC_URL||'http://127.0.0.1:4358')))}

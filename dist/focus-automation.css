@@ -1,0 +1,7 @@
+.automation-card{margin:0 0 24px;padding:22px 24px;border:1px solid #b9d6f5;border-radius:20px;background:linear-gradient(135deg,#f4f9ff,#fff 70%);box-shadow:0 12px 28px rgba(0,59,132,.07)}
+.automation-card h2{margin:8px 0 6px;color:#082b61;font-size:1.25rem;letter-spacing:-.025em}
+.automation-card p{margin:0;color:#4d6078;line-height:1.55}
+.automation-steps{display:flex;flex-wrap:wrap;gap:8px;margin-top:17px}
+.automation-steps span{padding:7px 10px;border:1px solid #d6e2ef;border-radius:999px;background:#fff;color:#52647b;font-size:.75rem;font-weight:650}
+.automation-steps .done{border-color:#bbdfd2;background:#effaf5;color:#176347}
+@media(max-width:640px){.automation-card{padding:19px}.automation-steps{gap:6px}.automation-steps span{font-size:.7rem}}

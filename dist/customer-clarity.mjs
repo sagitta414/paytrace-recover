@@ -7,6 +7,15 @@ export function customerNext(s){
  return {owner:'Merchant',title:'Your purchase is being reviewed',detail:s.next||'The merchant will check the purchase and record the next update here.'};
 }
 export function customerNextMarkup(s){const next=customerNext(s),last=s.messages?.at(-1);return `<section class="customer-next"><div class="customer-next-icon" aria-hidden="true">${s.verified&&!s.help?'✓':'↗'}</div><div><span class="customer-eyebrow">UP NEXT · ${esc(next.owner)}</span><h2>${esc(next.title)}</h2><p>${esc(next.detail)}</p>${last?`<small>Latest message · ${esc(when(last.at))}</small>`:'<small>No messages recorded yet. You can start the conversation below.</small>'}</div></section>`;}
+export function customerProgressMarkup(s){
+ const stage=Math.max(0,Math.min(3,Number(s.status)||0));
+ const labels=['Request received','Reviewing purchase','Updating access','Technical access check',s.help?'Follow-up open':'Your confirmation'];
+ return `<ol class="customer-progress" aria-label="Purchase recovery progress">${labels.map((label,i)=>{
+  const done=i<4?i<=stage&&!(i===3&&!s.verified):!!s.confirmedAt&&s.verified&&!s.help;
+  const current=i===4?(s.help||s.verified&&!s.confirmedAt):i===stage&&!s.verified;
+  return `<li class="${done?'done':s.help&&i===4?'reopened':''}" ${current?'aria-current="step"':''}><strong>${done?'✓':String(i+1).padStart(2,'0')}</strong>${label}</li>`;
+ }).join('')}</ol>`;
+}
 export function mountCustomerClarity(root,s,{pending=false}={}){
  root.querySelector('.customer-hero')?.insertAdjacentHTML('afterend',customerNextMarkup(s));
  const form=root.querySelector('#reply'),input=root.querySelector('#message');if(!form||!input)return;

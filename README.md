@@ -4,7 +4,17 @@ PayTrace Recover helps merchants resolve cases where a customer paid but didn’
 
 [Public Focus dashboard demo](https://courselatch.sagitta107.chatgpt.site/focus.html) · [Setup instructions](docs/SETUP.md) · [Focus frontend and reliability](docs/FOCUS-FRONTEND.md)
 
+The [Azure Node demo and integration checklist](docs/AZURE-DEPLOYMENT.md) documents the server-backed deployment separately from the public browser simulation.
+
+The local presentation route is `/` → `/story.html` → `/focus.html?from=story` → a private customer case link. The guided story and merchant workspace are separate examples, so their case state does not transfer. In the browser demo, the handoff opens Maya's seeded Focus case; on the server, it opens the merchant's own case queue. See the [screen-by-screen story](docs/DEMO-STORY.md).
+
 **Building the connected version? Start with the [detailed PayPal Sandbox and Render Build README](docs/BUILD-README.md).** It covers account setup, environment variables, local checkout, AI review, persistent hosting, Render Workflows, acceptance tests, troubleshooting, and release readiness.
+
+An optional [separate course-access service](docs/COURSE-ACCESS.md) now lets sandbox cases read, grant, and verify access outside PayTrace's SQLite store. The repository includes a small local reference service for a two-process demo; it is not a commercial LMS connector.
+
+Optional [PayPal sandbox webhook intake](docs/PAYPAL-WEBHOOKS.md) verifies capture events, rereads the exact payment from PayPal, and checks access for an existing case. Webhooks never approve or apply a repair.
+
+The Focus workspace now shows a downloadable [recovery run report](docs/RUN-REPORT.md) that labels each saved payment, access, AI, approval, Render, and lesson check as connected, demo, or incomplete.
 
 The public link runs a browser simulation using fictional records. Run the Node backend below to explore server-backed recovery; external integrations require your own sandbox credentials.
 
@@ -42,9 +52,9 @@ The original PayTrace design remains in `source/` as historical design material.
 
 ## Prototype boundaries
 
-One isolated demo merchant workspace with multiple fictional learners and one course per session. No production payments, refunds, email sending, external LMS connector, webhook listener, or production merchant authentication. The storefront deliberately injects an access-update failure after capture; it does not diagnose an actual third-party store outage. The AI interprets supplied records but cannot authorize or execute writes. Citations are checked for valid source IDs, not automatically proven factually correct. Merchant approval and deterministic checks remain necessary.
+One isolated demo merchant workspace with multiple fictional learners and one course per session. No production payments, refunds, commercial LMS connector, or production merchant authentication. Sandbox webhook intake is implemented but has not been validated with a live PayPal delivery. The storefront deliberately injects an access-update failure after capture; it does not diagnose an actual third-party store outage. The AI interprets supplied records but cannot authorize or execute writes. Citations are checked for valid source IDs, not automatically proven factually correct. Merchant approval and deterministic checks remain necessary.
 
-SQLite persistence and an in-process session lock support a single web-service instance. A production service needs tenant authentication, transactional idempotency with shared storage, webhook signature validation, retention controls, reconciliation jobs, refund/revocation handling, and a real course platform adapter. Approval is specific to the previewed evidence. Verification checks current state, not a permanent guarantee.
+SQLite persistence and an in-process session lock support a single web-service instance. A production service needs tenant authentication, transactional idempotency with shared storage, durable webhook processing, retention controls, reconciliation jobs, refund/revocation handling, and a real course platform adapter. Approval is specific to the previewed evidence. Verification checks current state, not a permanent guarantee.
 
 PayTrace Recover is a working name, not a trademark-clearance claim. This is an independent project, not an official PayPal product.
 
@@ -73,10 +83,10 @@ Customers can follow a private case, message the merchant, answer information re
 
 ## Follow the recovery story
 
-Open `/story.html` for the interactive Merchant/Customer story, including a successful recovery and a mismatched payment the system refuses to repair. The story uses labeled local sample data and scripted analysis. The connected Focus workspace also includes a concise decision brief and measured outcome facts. See the [demo walkthrough and measurement boundaries](docs/DEMO-STORY.md).
+Open `/story.html` for a seven-chapter Merchant/Customer story: a paid purchase with missing access, an evidence-linked four-specialist challenge, merchant approval of one correction, fresh verification, and customer confirmation. Alternate paths show a mismatched payment held safely, a verification failure that needs another check, and a customer who still needs help after technical verification. The merchant can acknowledge that report, recheck without a second grant, and explicitly send a state-aware customer update drafted by the scripted Relay specialist. This story uses labeled local sample data and scripted analysis. The connected Focus workspace also includes a concise decision brief and measured outcome facts. See the [demo walkthrough and measurement boundaries](docs/DEMO-STORY.md).
 
 ## Local backend update
 
 This source package incorporates upstream revision `ae216c815358b925a1a4475e99f07e1b55ab5946` and the earlier local UI fixes. Additional backend checks enforce workflow stage order, persist completed stage results for safe callback retries, reject stale case identifiers from browser tabs, validate JSON request objects and byte limits, and refresh existing sandbox captures without capturing again. Browser actions pass the selected case ID to the backend.
 
-Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL is http://127.0.0.1:4358; configure both `PORT` and `PUBLIC_URL` when choosing another port. Use `.env.example` for optional integration configuration. The complete suite contains 106 tests, including HTTP, persistence, private customer support, and mocked provider contracts. Live PayPal, AI, workflow, and email acceptance tests still require your own credentials.
+Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL is http://127.0.0.1:4358; configure both `PORT` and `PUBLIC_URL` when choosing another port. Use `.env.example` for optional integration configuration. The complete suite contains 119 tests, including HTTP, persistence, private customer support, a separate local course service, mocked webhook verification, and run-report truth checks. Live PayPal, AI, workflow, and email acceptance tests still require your own credentials.
