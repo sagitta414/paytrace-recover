@@ -18,6 +18,14 @@ test('connection checks distinguish configuration, accepted credentials and fail
  let called=0;const fetcher=async(url)=>{called++;assert.match(url,/sandbox\.paypal/);return {ok:true,status:200};};const result=await checkConnection('paypal',{PAYPAL_CLIENT_ID:'id',PAYPAL_CLIENT_SECRET:'secret'},fetcher);assert.equal(result.state,'connected');assert.equal(called,1);assert.ok(!JSON.stringify(result).includes('secret'));
  const failed=await checkConnection('ai',{OPENAI_API_KEY:'secret',OPENAI_MODEL:'missing'},async()=>({status:404}));assert.equal(failed.state,'failed');assert.ok(!JSON.stringify(failed).includes('secret'));
 });
+test('course connection check reads a new entitlement without granting access',async()=>{
+ const env={COURSE_ACCESS_URL:'https://course.example.test/',COURSE_ACCESS_API_KEY:'private-test-key'};
+ assert.equal((await checkConnection('access',{},async()=>{throw Error('must not call')})).state,'not-configured');
+ const paths=[];
+ const fetcher=async(url,options)=>{paths.push(new URL(url).pathname);assert.equal(options.method,'POST');assert.equal(options.headers.Authorization,'Bearer private-test-key');assert.equal(options.headers['Idempotency-Key'],undefined);const body=JSON.parse(options.body);assert.match(body.caseId,/^paytrace-connection-/);return {ok:true,status:200,json:async()=>({userId:body.userId,courseId:body.courseId,active:false,captureId:null})};};
+ const result=await checkConnection('access',env,fetcher);assert.equal(result.state,'connected');assert.deepEqual(paths,['/v1/access/check']);assert.ok(!JSON.stringify(result).includes('private-test-key'));
+ const denied=await checkConnection('access',env,async()=>({ok:false,status:401}));assert.equal(denied.state,'failed');
+});
 test('connection check HTTP requires operator and reminder writes require matching origin',async()=>{
  const db=openStore(':memory:'),app=createApp({PUBLIC_URL:'http://localhost'},db);await new Promise(r=>app.server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+app.server.address().port;
  try{const state=await fetch(base+'/api/state'),cookie=state.headers.get('set-cookie').split(';')[0],body=await state.json();const check=await fetch(base+'/api/connection-check?kind=paypal',{headers:{Cookie:cookie}});assert.equal(check.status,403);
