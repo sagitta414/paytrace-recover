@@ -7,11 +7,12 @@ import {courseAccessClient} from './course-access.mjs';
 import {scanCases,customerDraft,recoveryReceipt,proofIsCurrent} from '../dist/operations.mjs';
 import {validateGrace} from '../dist/diagnosis.mjs';
 import {buildRunReport} from '../dist/run-report.mjs';
+import {withRecoverySpan,noteSpecialistProgress} from './recovery-trace.mjs';
 export function createService(store,env=process.env,{fetcher=fetch,paypal=paypalClient(env,fetcher),probe,access=(owner,s)=>store.readAccess(owner,s),course=courseAccessClient(env,fetcher)}={}){
  const workflowReady=()=>!!(env.RENDER_API_KEY&&env.RENDER_INVESTIGATE_TASK&&env.RENDER_RECOVER_TASK&&env.WORKFLOW_SECRET);
  const external=s=>Boolean(course&&s.intakeMode==='sandbox');
  function beginAgentRun(s,id,operator){s.agentRun={mode:operator&&env.OPENAI_API_KEY&&env.OPENAI_MODEL?'model':'scripted',status:'running',step:'evidence',agent:null,completed:[],startedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};store.save(id,s);}
- function agentProgress(s,id){return async({agent,step,status})=>{s.agentRun={...s.agentRun,status:'running',step,agent,completed:status==='completed'?[...s.agentRun.completed,step]:s.agentRun.completed,updatedAt:new Date().toISOString()};store.save(id,s);};}
+ function agentProgress(s,id){return async({agent,step,status})=>{noteSpecialistProgress(agent,status);s.agentRun={...s.agentRun,status:'running',step,agent,completed:status==='completed'?[...s.agentRun.completed,step]:s.agentRun.completed,updatedAt:new Date().toISOString()};store.save(id,s);};}
  function finishAgentRun(s,id){s.agentRun={...s.agentRun,status:'complete',step:'done',agent:null,updatedAt:new Date().toISOString()};store.save(id,s);}
  function failAgentRun(s,id){s.agentRun={...(s.agentRun||{mode:'unknown',completed:[],startedAt:new Date().toISOString()}),status:'failed',updatedAt:new Date().toISOString()};store.save(id,s);}
  async function fresh(s,id){const ok=await readCaseSources(s,id,{paypal,access:(owner,state)=>external(state)?course.check(state):access(owner,state),accessSystem:external(s)?'External course access service':'Course access service'});store.saveCase(id,s);if(!ok)throw Error('Payment or course access records are unavailable. Refresh both systems before continuing.');}
@@ -48,7 +49,7 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
     if(s.monitor?.status!=='attention'||s.entitlement?.active)return {status:'no-longer-missing'};
     investigate(s);s.review=null;s.phase='reviewing';
     s.agentRun={mode:'model',status:'running',step:'evidence',agent:null,completed:[],startedAt:now,updatedAt:now};store.saveCase(id,s);
-    const progress=async({agent,step,status})=>{s.agentRun={...s.agentRun,step,agent,completed:status==='completed'?[...s.agentRun.completed,step]:s.agentRun.completed,updatedAt:new Date().toISOString()};store.saveCase(id,s);};
+    const progress=async({agent,step,status})=>{noteSpecialistProgress(agent,status);s.agentRun={...s.agentRun,step,agent,completed:status==='completed'?[...s.agentRun.completed,step]:s.agentRun.completed,updatedAt:new Date().toISOString()};store.saveCase(id,s);};
     attachAnalysis(s,await analyze(s,env,fetcher,progress));
     s.agentRun={...s.agentRun,status:'complete',step:'done',agent:null,updatedAt:new Date().toISOString()};
     s.automation={...s.automation,status:'awaiting-merchant',completedAt:new Date().toISOString(),nextAttemptAt:null};
@@ -136,5 +137,21 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
  }
  async function caseInfo(id,caseId){return store.lock(id,async()=>{const s=store.get(id).state;if(s.id!==caseId)throw Error('The selected case changed. Reopen it from the queue.');if(!s.job?.pending)await readCaseSources(s,id,{paypal,access:(owner,state)=>external(state)?course.check(state):access(owner,state),accessSystem:external(s)?'External course access service':'Course access service'});store.save(id,s);return {state:s};});}
  async function agentQuestion(id,{caseId,agent,question,requestId}={}){return store.lock(id,async()=>{const row=store.get(id);if(!row?.operator)throw Error('Unlock the operator session before asking an AI specialist.');const s=row.state;if(caseId!==s.id)throw Error('The selected case changed. Reopen it from the queue.');if(s.job?.pending)throw Error('Wait for the current workflow to finish.');if(typeof requestId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId))throw Error('A valid request ID is required.');await fresh(s,id);if(!reviewIsCurrent(s)||s.review?.mode!=='model'||s.analysis?.mode!=='model')throw Error('Run a current model-backed review before asking a specialist.');const prior=(s.agentQuestions||[]).find(item=>item.id===requestId);if(prior){if(prior.agent!==agent||prior.question!==question?.trim()||prior.reviewFingerprint!==s.review.fingerprint)throw Error('This request ID belongs to a different question.');return {state:s,answer:prior};}if((s.agentQuestions||[]).filter(item=>item.reviewFingerprint===s.review.fingerprint).length>=8)throw Error('This review has reached its eight-question limit.');const response=await answerQuestion(s,agent,question,env,fetcher);const entry={id:requestId,...response,reviewFingerprint:s.review.fingerprint,citedSnapshot:Object.fromEntries(response.sources.map(source=>[source,structuredClone(s.review.snapshot[source])])),at:new Date().toISOString(),mode:'model'};s.agentQuestions=[...(s.agentQuestions||[]),entry].slice(-20);record(s,`Merchant asked ${['Ledger','Relay','Patch','Prism'][agent]} a read-only follow-up. No access change was requested.`);store.save(id,s);return {state:s,answer:entry};});}
- return {caseInfo,action,stage,lesson,customerLesson,paypalCreate,paypalCapture,paypalWebhook,scan,autoTriage,agentQuestion,draft:id=>customerDraft(store.get(id).state,{mode:'server-demo'}),receipt:id=>recoveryReceipt(store.get(id).state,{mode:'server-demo'}),runReport:id=>buildRunReport(store.get(id).state,{backend:true})};
+ const caseKey=id=>store.get(id)?.state?.id||id;
+ const traced=(step,id,work)=>withRecoverySpan(step,caseKey(id),work);
+ return {
+  caseInfo:(id,caseId)=>traced('case-read',id,()=>caseInfo(id,caseId)),
+  action:(id,body)=>traced(['investigate','rehearse','approve','repair','verify'].includes(body?.action)?body.action:'other',id,()=>action(id,body)),
+  stage:(id,step,jobId)=>traced('workflow-'+step,id,()=>stage(id,step,jobId)),
+  lesson,customerLesson,
+  paypalCreate:(id,caseId)=>traced('paypal-create',id,()=>paypalCreate(id,caseId)),
+  paypalCapture:(id,orderId,caseId)=>traced('paypal-capture',id,()=>paypalCapture(id,orderId,caseId)),
+  paypalWebhook:event=>withRecoverySpan('paypal-webhook',event?.resource?.supplementary_data?.related_ids?.order_id,()=>paypalWebhook(event)),
+  scan:(id,options)=>traced('monitor-scan',id,()=>scan(id,options)),
+  autoTriage:id=>traced('auto-triage',id,()=>autoTriage(id)),
+  agentQuestion,
+  draft:id=>customerDraft(store.get(id).state,{mode:'server-demo'}),
+  receipt:id=>recoveryReceipt(store.get(id).state,{mode:'server-demo'}),
+  runReport:id=>buildRunReport(store.get(id).state,{backend:true})
+ };
 }
