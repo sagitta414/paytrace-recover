@@ -20,6 +20,8 @@ The merchant case view also includes an interactive Break Point Map from PayPal 
 
 The Connections screen can perform a read-only authenticated check against the separate course service before a recovery run. It checks a new test entitlement and never grants access; a successful connection check does not claim that lesson verification or an end-to-end recovery passed.
 
+The judge walkthrough now offers a single short route through the sample story and merchant workspace, with a separate sandbox readiness callout. The Focus desk reports verified access, cases held for evidence, writes awaiting verification, and technically verified cases awaiting customer confirmation. The merchant can set a customer-visible next progress-update time independently of private reminders; it makes no promise that access will be restored by that time.
+
 The guided story now hands viewers into the merchant workspace. The judge page shows current configuration separately from completed case evidence; the Connections page tracks four pre-Render checkpoints. Sandbox intake stays unavailable until PayPal credentials are configured. Activity can be searched and filtered with full dates, while the customer view distinguishes the latest case message from the last merchant reply. The case view presents one specialist evidence section instead of repeating the same four findings.
 
 The public link runs a browser simulation using fictional records. Run the Node backend below to explore server-backed recovery; external integrations require your own sandbox credentials.

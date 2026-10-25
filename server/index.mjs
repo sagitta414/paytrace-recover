@@ -47,6 +47,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    if(route==='/api/state'&&req.method==='GET')return json(200,{state:session.state,operator:session.operator});
    if(route==='/api/support/inbox'&&req.method==='GET')return json(200,{items:store.support.inbox(session.id)});
    if(route==='/api/support/reminders'&&req.method==='GET')return json(200,{items:store.support.reminders(session.id)});
+   if(route==='/api/support/outcomes'&&req.method==='GET')return json(200,{confirmedCaseIds:store.support.confirmedCaseIds(session.id)});
    if(route==='/api/support'&&req.method==='GET')return json(200,store.support.view(session.id,url.searchParams.get('caseId'),true));
    if(route==='/api/case'&&req.method==='GET')return json(200,await service.caseInfo(session.id,url.searchParams.get('caseId')));
    if(route==='/api/operations'&&req.method==='GET')return json(200,{cases:store.listCases(session.id),graceMinutes:store.grace(session.id)});
@@ -67,6 +68,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
     return json(200,store.support.mutate(session.id,id,body,true));
    }
    if(route==='/api/support/reminder'){if(!session.operator)return json(403,{error:'Unlock the operator session first.'});return json(200,{reminder:store.support.reminder(session.id,body.caseId,body.dueAt,body.note)});}
+   if(route==='/api/support/update-promise'){if(!session.operator)return json(403,{error:'Unlock the operator session first.'});return json(200,{nextUpdateAt:store.support.updatePromise(session.id,body.caseId,body.dueAt)});}
    if(route==='/api/monitor/scan'){const result=await service.scan(session.id,body);setImmediate(()=>service.autoTriage(session.id).catch(()=>{}));return json(200,result)}
    if(route==='/api/learner/session'){if(body.caseId!==undefined&&body.caseId!==session.state.id)return json(409,{error:'The selected case changed. Reopen it from the queue before continuing.'});if(session.state.currentAccountId&&session.state.currentAccountId!==session.state.order.userId)return json(403,{error:'Sign in with the purchasing account before opening a learner session.'});const token=store.mintLearnerToken(session.id,session.state.id);res.setHeader('Set-Cookie',`cl_learner=${token}; Path=/api/learner; HttpOnly; SameSite=Strict; Max-Age=600${publicUrl.protocol==='https:'?'; Secure':''}`);return json(200,{ok:true,mode:'Scoped demonstration learner session; not production sign-in'});}
    if(route==='/api/operator'){const entry=attempts.get(session.id)||{count:0,until:Date.now()+600000};if(Date.now()>entry.until){entry.count=0;entry.until=Date.now()+600000}entry.count++;attempts.set(session.id,entry);if(entry.count>5)return json(429,{error:'Too many attempts. Try later.'});if(!equal(body.key,env.DEMO_OPERATOR_KEY))return json(403,{error:'Operator key is not configured or does not match.'});store.authorize(session.id);return json(200,{ok:true})}

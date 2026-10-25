@@ -2,6 +2,8 @@
 
 Start at `https://paytrace-recover-sagitta.azurewebsites.net/judge.html`. The sample tour is clearly labeled fictional. The Azure merchant workspace is server-backed, but its current integration state is **AI connected, separate course service connected, PayPal sandbox unconfigured, Render Workflow unconfigured**. A recovery run is connected only when the run report records all six checks as passed.
 
+The judge page now gives one short route through the sample story and a separate server-backed case, then points to the connection checklist for a sandbox run. The Focus dashboard's outcomes panel counts current verified access, evidence holds, and writes awaiting verification. On the server it also counts technically verified cases without a recorded customer confirmation. These are this workspace's cases, split by sandbox versus sample; they are not a claim about merchant-wide impact.
+
 ## 1. Connect the PayPal sandbox app
 
 In PayPal Developer Dashboard, open the existing **Sandbox** REST app. Copy its client ID and client secret into Azure Portal → App Services → `paytrace-recover-sagitta` → Environment variables → App settings as `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`. Save and allow the app to restart. Do not put either value in the browser, GitHub, a screenshot, or a chat message. Use credentials from the same sandbox app; live credentials are not supported by this prototype.

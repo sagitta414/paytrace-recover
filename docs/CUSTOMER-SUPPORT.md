@@ -12,6 +12,8 @@ The merchant investigates and authorizes changes in `focus.html`. The customer u
 6. Investigate, preview, approve, and repair in the merchant workspace. Refresh the customer page. **Open my purchase** requires a current successful proof and checks the case-scoped protected course content again.
 7. Customer confirmation is separate from technical verification. **I still need help** flags the conversation for follow-up without repeating an access grant.
 
+The merchant can set a separate **Customer-visible update** time inside Customer communication. The private customer page shows that planned progress-update time and marks it overdue if it passes. It is not an access-restoration deadline, an automatic message, or the merchant's private follow-up reminder. Only an unlocked operator can set or clear it; the private reminder note never appears in the customer projection.
+
 The tracker currently uses explicit **Refresh updates**. The visible check time distinguishes the displayed snapshot from a live stream. Draft text survives a conversation refresh; failed message retries keep their request ID to avoid duplicates during the current page session.
 
 ## Email setup
