@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {trace,SpanStatusCode} from '@opentelemetry/api';
 
 // Keep purchase references, learner details, prompts, and provider errors out of telemetry.
-const steps=new Set(['case-read','investigate','rehearse','approve','repair','verify','paypal-create','paypal-capture','paypal-webhook','workflow-gather','workflow-analyze','workflow-record','workflow-repair','workflow-verify','auto-triage','monitor-scan']);
+const steps=new Set(['case-read','investigate','rehearse','approve','repair','verify','paypal-create','paypal-capture','paypal-webhook','workflow-gather','workflow-analyze','workflow-record','workflow-repair','workflow-verify','auto-triage']);
 const phases=new Set(['unpaid','paid','reviewing','investigated','rehearsed','approved','verifying','verified','unverified','blocked','needs-evidence','verify-only','review-failed','stale']);
 export function traceCaseKey(reference){return createHash('sha256').update(String(reference||'unknown')).digest('hex').slice(0,16)}
 export function noteSpecialistProgress(agent,status){

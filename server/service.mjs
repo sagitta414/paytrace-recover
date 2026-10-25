@@ -40,6 +40,7 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
    if(!store.get(id)?.operator)return {status:'operator-required'};
    const cases=store.listCases(id),candidate=cases.find(s=>s.intakeMode==='sandbox'&&s.capture?.source==='paypal-sandbox'&&s.monitor?.status==='attention'&&!s.review&&!s.job?.pending&&(!s.automation?.nextAttemptAt||Date.parse(s.automation.nextAttemptAt)<=Date.now()));
    if(!candidate)return {status:'nothing-due'};
+   return withRecoverySpan('auto-triage',candidate.id,async()=>{
    const s=candidate,now=new Date().toISOString();
    s.automation={...(s.automation||{}),status:'investigating',startedAt:now,attempts:(s.automation?.attempts||0)+1};
    record(s,'Automatic investigation started after the delivery window. No access change was authorized.');
@@ -62,6 +63,7 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
     record(s,'Automatic investigation needs attention. No access change was authorized.');
     store.saveCase(id,s);return {status:'needs-attention',caseId:s.id};
    }
+   });
   });
  }
  async function stage(id,step,jobId){return store.lock(id,async()=>{
@@ -147,8 +149,9 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
   paypalCreate:(id,caseId)=>traced('paypal-create',id,()=>paypalCreate(id,caseId)),
   paypalCapture:(id,orderId,caseId)=>traced('paypal-capture',id,()=>paypalCapture(id,orderId,caseId)),
   paypalWebhook:event=>withRecoverySpan('paypal-webhook',event?.resource?.supplementary_data?.related_ids?.order_id,()=>paypalWebhook(event)),
-  scan:(id,options)=>traced('monitor-scan',id,()=>scan(id,options)),
-  autoTriage:id=>traced('auto-triage',id,()=>autoTriage(id)),
+  // The 30-second monitor can scan many demo owners; tracing idle polls would
+  // flood the workspace. autoTriage emits a span only when it starts real work.
+  scan,autoTriage,
   agentQuestion,
   draft:id=>customerDraft(store.get(id).state,{mode:'server-demo'}),
   receipt:id=>recoveryReceipt(store.get(id).state,{mode:'server-demo'}),
