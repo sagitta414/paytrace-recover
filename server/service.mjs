@@ -5,7 +5,7 @@ import {COURSE,createCase,simulatePayment,investigate,rehearse,approve,applyRepa
 import {analyze,answerQuestion} from './ai.mjs';import {paypalClient} from './paypal.mjs';
 import {courseAccessClient} from './course-access.mjs';
 import {scanCases,customerDraft,recoveryReceipt,proofIsCurrent} from '../dist/operations.mjs';
-import {validateGrace} from '../dist/diagnosis.mjs';
+import {diagnose,validateGrace} from '../dist/diagnosis.mjs';
 import {buildRunReport} from '../dist/run-report.mjs';
 import {withRecoverySpan,noteSpecialistProgress} from './recovery-trace.mjs';
 export function createService(store,env=process.env,{fetcher=fetch,paypal=paypalClient(env,fetcher),probe,access=(owner,s)=>store.readAccess(owner,s),course=courseAccessClient(env,fetcher)}={}){
@@ -64,10 +64,23 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
   }
  }
  async function autoTriage(id){
-  if(!env.OPENAI_API_KEY||!env.OPENAI_MODEL)return {status:'ai-not-configured'};
   return store.lock(id,async()=>{
-   if(!store.get(id)?.operator)return {status:'operator-required'};
    const cases=store.listCases(id),policy=store.autopilot(id);
+   const existing=cases.find(s=>s.intakeMode==='sandbox'&&s.capture?.source==='paypal-sandbox'&&s.monitor?.status==='access_present'&&!proofIsCurrent(s)&&!s.job?.pending&&(!s.automation?.nextAttemptAt||Date.parse(s.automation.nextAttemptAt)<=Date.now())&&diagnose(s).code==='access_present');
+   if(existing)return withRecoverySpan('auto-verify-existing',existing.id,async()=>{
+    const s=existing;try{
+     await fresh(s,id);
+     if(diagnose(s).code!=='access_present')throw Error('Access changed before verification.');
+     if(s.writes===0){investigate(s);if(s.review.outcome!=='verify-only')throw Error('Existing access is not eligible for verification.');}
+     store.saveCase(id,s);
+     const result=await verifyFresh(id,s.id);
+     result.automation={...result.automation,status:result.phase==='verified'?'verified-existing':'verification-pending',nextAttemptAt:result.phase==='verified'?null:new Date(Date.now()+5*60000).toISOString()};
+     record(result,result.phase==='verified'?'Existing access was verified automatically without a PayTrace grant.':'Existing access could not be verified yet. A read-only recheck is scheduled.');
+     store.saveCase(id,result);return {status:result.automation.status,caseId:result.id};
+    }catch{const latest=store.caseById(id,s.id);latest.automation={...latest.automation,status:'needs-attention',nextAttemptAt:new Date(Date.now()+5*60000).toISOString(),error:'Current payment or access could not be confirmed.'};record(latest,'Automatic existing-access check needs attention. No grant was attempted.');store.saveCase(id,latest);return {status:'needs-attention',caseId:s.id};}
+   });
+   if(!env.OPENAI_API_KEY||!env.OPENAI_MODEL)return {status:'ai-not-configured'};
+   if(!store.get(id)?.operator)return {status:'operator-required'};
    const retry=cases.find(s=>s.approval?.mode==='policy'&&s.writes===1&&s.phase==='unverified'&&s.automation?.status==='verification-pending'&&Date.parse(s.automation.nextAttemptAt||0)<=Date.now());
    if(retry)return withRecoverySpan('auto-verify',retry.id,async()=>{const result=await verifyFresh(id,retry.id);result.automation={...result.automation,status:result.phase==='verified'?'verified':'verification-pending',nextAttemptAt:result.phase==='verified'?null:new Date(Date.now()+5*60000).toISOString()};store.saveCase(id,result);return {status:result.automation.status,caseId:result.id};});
    const reviewed=policy.enabled&&cases.find(s=>s.automation?.status==='awaiting-merchant'&&s.automation?.policyCheckedId!==policy.id&&s.review?.mode==='model'&&!s.job?.pending);
