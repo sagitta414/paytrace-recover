@@ -1,0 +1,27 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {openStore} from '../server/store.mjs';
+import {createService} from '../server/service.mjs';
+import {safetyQuestions} from '../server/ai.mjs';
+
+const env={PAYPAL_CLIENT_ID:'sandbox-id',PAYPAL_CLIENT_SECRET:'sandbox-secret',COURSE_ACCESS_URL:'https://course.example',COURSE_ACCESS_API_KEY:'course-key',OPENAI_API_KEY:'test',OPENAI_MODEL:'test-model'};
+function model(){return async(_url,options)=>{const body=JSON.parse(options.body),input=JSON.parse(body.input),properties=body.text.format.schema.properties;let value;
+ if(properties.objections)value={objections:[{question:safetyQuestions.identity,category:'identity',sources:['payment','order']}]};
+ else if(properties.answers)value={answers:input.objections.map(o=>({id:o.id,summary:'The purchase matches.',sources:['payment','order']}))};
+ else if(properties.decisions)value={summary:'Payment matches and access is missing.',unknown:'Cause unknown.',sources:['payment','store'],decisions:input.objections.map(o=>({id:o.id,summary:'Exact match.',sources:['payment','order'],status:'resolved'}))};
+ else value={summary:'Records reviewed.',unknown:'Cause unknown.',sources:['payment','order']};
+ return Response.json({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(value)}]}]});};}
+function fixture({mismatch=false,probeFails=false,grantFails=false}={}){const db=openStore(':memory:'),{id}=db.create();db.authorize(id);const s=db.get(id).state;s.intakeMode='sandbox';s.paypalOrderId='PP-12345';s.capture.source='paypal-sandbox';s.paidAt=new Date(Date.now()-10*60000).toISOString();db.save(id,s);let grants=0;
+ const paypal={refresh:async state=>({...state.capture,source:'paypal-sandbox',status:'COMPLETED',amount:mismatch?state.order.amount-1:state.order.amount})};
+ const course={check:async state=>({userId:state.order.userId,courseId:state.order.courseId,active:grants>0,captureId:grants?state.capture.id:null}),grant:async state=>{grants++;if(grantFails)throw Error('Transport timeout');return {userId:state.order.userId,courseId:state.order.courseId,active:true,captureId:state.capture.id};},probe:async state=>probeFails?{accessible:false}:{accessible:true,userId:state.order.userId,courseId:state.order.courseId,captureId:state.capture.id,contentId:'light-lesson-01',body:'A protected lesson with more than twenty characters.'}};
+ const svc=createService(db,env,{paypal,course,fetcher:model()});return {db,id,svc,grants:()=>grants};}
+
+test('merchant policy is off by default, requires operator, and needs configured integrations',async()=>{const db=openStore(':memory:');try{const {id}=db.create(),svc=createService(db,{});assert.equal(db.autopilot(id).enabled,false);await assert.rejects(svc.setAutopilot(id,{enabled:true,maxAmountCents:15000,dailyLimit:2}),/operator/);db.authorize(id);await assert.rejects(svc.setAutopilot(id,{enabled:true,maxAmountCents:15000,dailyLimit:2}),/Connect PayPal/);assert.equal(db.autopilot(id).enabled,false);}finally{db.close();}});
+
+test('eligible sandbox case is granted once and verified after a model review',async()=>{const f=fixture();try{await f.svc.setAutopilot(f.id,{enabled:true,maxAmountCents:15000,dailyLimit:2});await f.svc.scan(f.id);const result=await f.svc.autoTriage(f.id),s=f.db.get(f.id).state;assert.equal(result.status,'verified');assert.equal(s.phase,'verified');assert.equal(s.approval.mode,'policy');assert.equal(s.writes,1);assert.equal(f.grants(),1);assert.equal((await f.svc.autoTriage(f.id)).status,'nothing-due');assert.equal(f.grants(),1);}finally{f.db.close();}});
+
+test('mismatched capture holds the case with zero automatic grants',async()=>{const f=fixture({mismatch:true});try{await f.svc.setAutopilot(f.id,{enabled:true,maxAmountCents:15000,dailyLimit:2});await f.svc.scan(f.id);await f.svc.autoTriage(f.id);assert.equal(f.grants(),0);assert.equal(f.db.get(f.id).state.writes,0);}finally{f.db.close();}});
+
+test('failed lesson verification retries reads without a second grant',async()=>{const f=fixture({probeFails:true});try{await f.svc.setAutopilot(f.id,{enabled:true,maxAmountCents:15000,dailyLimit:2});await f.svc.scan(f.id);const result=await f.svc.autoTriage(f.id);assert.equal(result.status,'verification-pending');assert.equal(f.grants(),1);const s=f.db.get(f.id).state;s.automation.nextAttemptAt=new Date(0).toISOString();f.db.save(f.id,s);const retried=await f.svc.autoTriage(f.id);assert.equal(retried.status,'verification-pending');assert.equal(f.grants(),1);assert.equal(f.db.get(f.id).state.writes,1);}finally{f.db.close();}});
+test('amount outside merchant policy remains a manual case',async()=>{const f=fixture();try{await f.svc.setAutopilot(f.id,{enabled:true,maxAmountCents:10000,dailyLimit:2});await f.svc.scan(f.id);const result=await f.svc.autoTriage(f.id);assert.equal(result.status,'awaiting-merchant');assert.equal(f.grants(),0);assert.equal(f.db.get(f.id).state.approval,null);}finally{f.db.close();}});
+test('ambiguous external write is held for review and never automatically replayed',async()=>{const f=fixture({grantFails:true});try{await f.svc.setAutopilot(f.id,{enabled:true,maxAmountCents:15000,dailyLimit:2});await f.svc.scan(f.id);const result=await f.svc.autoTriage(f.id);assert.equal(result.status,'needs-attention');assert.equal(f.db.get(f.id).state.approval,null);assert.equal((await f.svc.autoTriage(f.id)).status,'nothing-due');assert.equal(f.grants(),1);}finally{f.db.close();}});

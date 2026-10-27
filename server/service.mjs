@@ -1,7 +1,7 @@
 import {readCaseSources} from './case-sources.mjs';
 import {newCase,validateNewCase} from '../dist/new-case-model.mjs';
 import {randomUUID} from 'node:crypto';
-import {createCase,simulatePayment,investigate,rehearse,approve,applyRepair,verify,canOpenLesson,record,fingerprint,reviewIsCurrent,attachAnalysis,changeSampleEvidence,restoreSampleEvidence} from '../dist/core.mjs';
+import {COURSE,createCase,simulatePayment,investigate,rehearse,approve,applyRepair,verify,canOpenLesson,record,fingerprint,reviewIsCurrent,attachAnalysis,changeSampleEvidence,restoreSampleEvidence} from '../dist/core.mjs';
 import {analyze,answerQuestion} from './ai.mjs';import {paypalClient} from './paypal.mjs';
 import {courseAccessClient} from './course-access.mjs';
 import {scanCases,customerDraft,recoveryReceipt,proofIsCurrent} from '../dist/operations.mjs';
@@ -16,29 +16,63 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
  function finishAgentRun(s,id){s.agentRun={...s.agentRun,status:'complete',step:'done',agent:null,updatedAt:new Date().toISOString()};store.save(id,s);}
  function failAgentRun(s,id){s.agentRun={...(s.agentRun||{mode:'unknown',completed:[],startedAt:new Date().toISOString()}),status:'failed',updatedAt:new Date().toISOString()};store.save(id,s);}
  async function fresh(s,id){const ok=await readCaseSources(s,id,{paypal,access:(owner,state)=>external(state)?course.check(state):access(owner,state),accessSystem:external(s)?'External course access service':'Course access service'});store.saveCase(id,s);if(!ok)throw Error('Payment or course access records are unavailable. Refresh both systems before continuing.');}
- async function repairApproved(s,id){
+ async function repairApproved(s,id,{policyRun=false}={}){
   await fresh(s,id);
   if(s.writes>0)return;
   if(!s.approval||s.phase!=='approved'||s.approval.fingerprint!==fingerprint(s))throw Error('Approval or fresh evidence is missing or has changed.');
+  if(s.approval.mode==='policy'&&!policyRun)throw Error('A policy-authorized grant cannot be retried. Review current evidence and approve a new preview.');
   if(external(s)){
    // The external service must confirm the grant before PayTrace records a write.
    // A timeout leaves approval visible and requires a fresh read before retry.
    const granted=await course.grant(s);
    applyRepair(s);
    s.entitlement=granted;
-   store.save(id,s);
+   store.saveCase(id,s);
   }else{applyRepair(s);store.grant(id,s);}
  }
  function lesson(id){const s=store.get(id)?.state;if(!s)throw Error('No session.');return external(s)?course.probe(s):store.lesson(id);}
  async function customerLesson(id,caseId){const s=store.caseById(id,caseId);if(!external(s))return store.support.lesson(id,caseId);if(!proofIsCurrent(s)||s.evidenceAvailable===false||Object.values(s.sources||{}).some(x=>x?.status==='unavailable'))throw Error('Access is still being checked.');const value=await course.probe(s);if(value?.accessible!==true||value.userId!==s.order.userId||value.courseId!==s.order.courseId||value.captureId!==s.capture.id||value.contentId!=='light-lesson-01'||typeof value.body!=='string'||value.body.length<=20)throw Error('Protected course content could not be confirmed.');return {accessible:true,title:value.title||'Your purchased lesson',body:value.body,lesson:value.lesson||'Purchased lesson',contentId:value.contentId};}
- async function verifyFresh(id){const s=store.get(id).state;let available=true;try{await fresh(s,id)}catch{available=false}store.save(id,s);if(s.scenario==='read-error'&&s.reads===0)available=false;let resource=null,access=false,transport;if(external(s)){transport='external-course-service';try{resource=await course.probe(s)}catch{}}else{transport=probe?'authenticated-http':'scoped-content-adapter';const token=store.mintLearnerToken(id,s.id,30000);try{resource=probe?await probe(token):store.readLearnerToken(token)}catch{}finally{store.revokeLearnerToken(token);}}access=resource?.accessible===true&&resource.userId===s.order.userId&&resource.courseId===s.order.courseId&&resource.captureId===s.capture?.id&&resource.contentId==='light-lesson-01'&&typeof resource.body==='string'&&resource.body.length>20;verify(s,{paymentAvailable:available,lessonAvailable:access,transport,resource:access?{contentId:resource.contentId,userId:resource.userId,courseId:resource.courseId}:null});store.save(id,s);return s}
+ async function verifyFresh(id,caseId=store.get(id).state.id){const s=store.caseById(id,caseId);let available=true;try{await fresh(s,id)}catch{available=false}store.saveCase(id,s);if(s.scenario==='read-error'&&s.reads===0)available=false;let resource=null,access=false,transport;if(external(s)){transport='external-course-service';try{resource=await course.probe(s)}catch{}}else{transport=probe?'authenticated-http':'scoped-content-adapter';const token=store.mintLearnerToken(id,s.id,30000);try{resource=probe?await probe(token):store.readLearnerToken(token)}catch{}finally{store.revokeLearnerToken(token);}}access=resource?.accessible===true&&resource.userId===s.order.userId&&resource.courseId===s.order.courseId&&resource.captureId===s.capture?.id&&resource.contentId==='light-lesson-01'&&typeof resource.body==='string'&&resource.body.length>20;verify(s,{paymentAvailable:available,lessonAvailable:access,transport,resource:access?{contentId:resource.contentId,userId:resource.userId,courseId:resource.courseId}:null});store.saveCase(id,s);return s}
  async function scan(id,{graceMinutes}={}){return store.lock(id,async()=>{if(graceMinutes!==undefined)store.setGrace(id,validateGrace(graceMinutes));const cases=store.listCases(id);for(const s of cases){if(s.job?.pending)continue;const before=fingerprint(s);if(s.capture?.source==='paypal-sandbox'){try{await fresh(s,id);}catch{}}if(before!==fingerprint(s)&&s.review){s.approval=null;s.rehearsal=null;s.proof=null;s.phase='stale';}}
    scanCases(cases,{graceMinutes:store.grace(id)});for(const s of cases)store.saveCase(id,s);return {cases,graceMinutes:store.grace(id),checkedAt:new Date().toISOString()};});}
+ const autopilotReady=()=>!!(env.PAYPAL_CLIENT_ID&&env.PAYPAL_CLIENT_SECRET&&env.COURSE_ACCESS_URL&&env.COURSE_ACCESS_API_KEY&&env.OPENAI_API_KEY&&env.OPENAI_MODEL&&course);
+ function setAutopilot(id,input){if(!store.get(id)?.operator)throw Error('Unlock the operator session first.');if(typeof input?.enabled!=='boolean'||!Number.isInteger(input.maxAmountCents)||input.maxAmountCents<1||input.maxAmountCents>50000||!Number.isInteger(input.dailyLimit)||input.dailyLimit<1||input.dailyLimit>10)throw Error('Use a valid amount and a daily limit from 1 to 10.');if(input.enabled&&!autopilotReady())throw Error('Connect PayPal sandbox, the course access service, and AI before enabling automatic repair.');const policy={enabled:input.enabled,courseId:COURSE.id,maxAmountCents:input.maxAmountCents,dailyLimit:input.dailyLimit,id:randomUUID(),updatedAt:new Date().toISOString()};return store.setAutopilot(id,policy);}
+ async function autoRecoverReady(id,s,policy){
+  if(!policy.enabled||!autopilotReady()||!store.get(id)?.operator)return {status:'awaiting-merchant',caseId:s.id};
+  if(s.automation?.policyCheckedId===policy.id)return {status:s.automation?.status||'awaiting-merchant',caseId:s.id};
+  const eligible=s.intakeMode==='sandbox'&&s.capture?.source==='paypal-sandbox'&&external(s)&&s.review?.mode==='model'&&s.analysis?.mode==='model'&&reviewIsCurrent(s)&&s.review.outcome==='ready'&&s.review.objections.every(o=>o.status==='resolved')&&s.phase==='investigated'&&s.writes===0&&!s.entitlement.active&&s.order.courseId===policy.courseId&&s.order.amount<=policy.maxAmountCents&&s.order.currency==='USD'&&s.order.userId===s.currentAccountId;
+  if(!eligible){s.automation={...s.automation,status:'awaiting-merchant',policyCheckedId:policy.id,policyReason:'Outside automatic recovery policy.'};store.saveCase(id,s);return {status:'awaiting-merchant',caseId:s.id};}
+  try{
+   await fresh(s,id);
+   if(!reviewIsCurrent(s)||s.phase!=='investigated'||s.entitlement.active)throw Error('Evidence changed before the automatic preview.');
+   rehearse(s);
+   if(s.rehearsal.before.active||s.rehearsal.after.userId!==s.order.userId||s.rehearsal.after.courseId!==policy.courseId||s.rehearsal.after.captureId!==s.capture.id)throw Error('Preview is outside policy.');
+   if(!store.autopilot(id).enabled||store.autopilot(id).id!==policy.id)throw Error('Automatic recovery policy changed.');
+   if(!store.reserveAutopilot(id,s.id,policy))throw Error('Automatic recovery daily limit reached.');
+   approve(s,s.rehearsal.id,{mode:'policy',policyId:policy.id});
+   s.automation={...s.automation,status:'repairing',policyCheckedId:policy.id};store.saveCase(id,s);
+   await repairApproved(s,id,{policyRun:true});
+   const result=await verifyFresh(id,s.id);
+   result.automation={...result.automation,status:result.phase==='verified'?'verified':'verification-pending',nextAttemptAt:result.phase==='verified'?null:new Date(Date.now()+5*60000).toISOString()};
+   record(result,result.phase==='verified'?'Policy recovery verified against payment, access, and protected lesson.':'Policy recovery needs a read-only verification retry. No second grant will be attempted.');
+   store.saveCase(id,result);return {status:result.automation.status,caseId:s.id};
+  }catch{
+   const latest=store.caseById(id,s.id);
+   if(latest.writes===0){latest.approval=null;latest.rehearsal=null;latest.phase='stale';}
+   latest.automation={...latest.automation,status:'needs-attention',policyCheckedId:policy.id,nextAttemptAt:null,error:'Automatic recovery stopped. Review current evidence before any further change.'};
+   record(latest,'Automatic recovery stopped safely. Merchant review is required; no automatic grant retry.');store.saveCase(id,latest);return {status:'needs-attention',caseId:s.id};
+  }
+ }
  async function autoTriage(id){
   if(!env.OPENAI_API_KEY||!env.OPENAI_MODEL)return {status:'ai-not-configured'};
   return store.lock(id,async()=>{
    if(!store.get(id)?.operator)return {status:'operator-required'};
-   const cases=store.listCases(id),candidate=cases.find(s=>s.intakeMode==='sandbox'&&s.capture?.source==='paypal-sandbox'&&s.monitor?.status==='attention'&&!s.review&&!s.job?.pending&&(!s.automation?.nextAttemptAt||Date.parse(s.automation.nextAttemptAt)<=Date.now()));
+   const cases=store.listCases(id),policy=store.autopilot(id);
+   const retry=cases.find(s=>s.approval?.mode==='policy'&&s.writes===1&&s.phase==='unverified'&&s.automation?.status==='verification-pending'&&Date.parse(s.automation.nextAttemptAt||0)<=Date.now());
+   if(retry)return withRecoverySpan('auto-verify',retry.id,async()=>{const result=await verifyFresh(id,retry.id);result.automation={...result.automation,status:result.phase==='verified'?'verified':'verification-pending',nextAttemptAt:result.phase==='verified'?null:new Date(Date.now()+5*60000).toISOString()};store.saveCase(id,result);return {status:result.automation.status,caseId:result.id};});
+   const reviewed=policy.enabled&&cases.find(s=>s.automation?.status==='awaiting-merchant'&&s.automation?.policyCheckedId!==policy.id&&s.review?.mode==='model'&&!s.job?.pending);
+   if(reviewed)return withRecoverySpan('auto-recover',reviewed.id,()=>autoRecoverReady(id,reviewed,policy));
+   const candidate=cases.find(s=>s.intakeMode==='sandbox'&&s.capture?.source==='paypal-sandbox'&&s.monitor?.status==='attention'&&!s.review&&!s.job?.pending&&(!s.automation?.nextAttemptAt||Date.parse(s.automation.nextAttemptAt)<=Date.now()));
    if(!candidate)return {status:'nothing-due'};
    return withRecoverySpan('auto-triage',candidate.id,async()=>{
    const s=candidate,now=new Date().toISOString();
@@ -55,7 +89,7 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
     s.agentRun={...s.agentRun,status:'complete',step:'done',agent:null,updatedAt:new Date().toISOString()};
     s.automation={...s.automation,status:'awaiting-merchant',completedAt:new Date().toISOString(),nextAttemptAt:null};
     record(s,'Automatic evidence review completed. Merchant approval is required for any correction.');
-    store.saveCase(id,s);return {status:'awaiting-merchant',caseId:s.id};
+    store.saveCase(id,s);return autoRecoverReady(id,s,policy);
    }catch(e){
     s.review=null;s.analysis=null;s.phase='review-failed';
     s.agentRun={...(s.agentRun||{}),status:'failed',updatedAt:new Date().toISOString()};
@@ -151,7 +185,7 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
   paypalWebhook:event=>withRecoverySpan('paypal-webhook',event?.resource?.supplementary_data?.related_ids?.order_id,()=>paypalWebhook(event)),
   // The 30-second monitor can scan many demo owners; tracing idle polls would
   // flood the workspace. autoTriage emits a span only when it starts real work.
-  scan,autoTriage,
+  scan,autoTriage,setAutopilot:(id,input)=>store.lock(id,()=>setAutopilot(id,input)),autopilotReady,
   agentQuestion,
   draft:id=>customerDraft(store.get(id).state,{mode:'server-demo'}),
   receipt:id=>recoveryReceipt(store.get(id).state,{mode:'server-demo'}),

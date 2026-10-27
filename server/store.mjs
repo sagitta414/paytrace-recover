@@ -12,6 +12,8 @@ export function openStore(file){
  CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, value TEXT NOT NULL, operator INTEGER NOT NULL DEFAULT 0, updated INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS cases (owner TEXT NOT NULL, id TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(owner,id));
  CREATE TABLE IF NOT EXISTS monitor_settings (owner TEXT PRIMARY KEY, grace INTEGER NOT NULL DEFAULT 5);
+ CREATE TABLE IF NOT EXISTS autopilot_policies (owner TEXT PRIMARY KEY, value TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS autopilot_reservations (owner TEXT NOT NULL, case_id TEXT NOT NULL, policy_id TEXT NOT NULL, day TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY(owner,case_id));
  CREATE TABLE IF NOT EXISTS course_access (owner TEXT NOT NULL, case_id TEXT NOT NULL, learner TEXT NOT NULL, course TEXT NOT NULL, capture TEXT NOT NULL, PRIMARY KEY(owner,case_id));
  CREATE TABLE IF NOT EXISTS learner_tokens (hash TEXT PRIMARY KEY, owner TEXT NOT NULL, case_id TEXT NOT NULL, learner TEXT NOT NULL, course TEXT NOT NULL, expires INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS paypal_webhook_events (id TEXT PRIMARY KEY, owner TEXT NOT NULL, case_id TEXT NOT NULL, processed_at TEXT NOT NULL);`);
@@ -38,6 +40,9 @@ export function openStore(file){
   owners(){return db.prepare('SELECT id FROM sessions').all().map(r=>r.id);},
   grace(owner){return db.prepare('SELECT grace FROM monitor_settings WHERE owner=?').get(owner)?.grace||5;},
   setGrace(owner,n){db.prepare('INSERT INTO monitor_settings VALUES (?,?) ON CONFLICT(owner) DO UPDATE SET grace=excluded.grace').run(owner,n);},
+  autopilot(owner){const row=db.prepare('SELECT value FROM autopilot_policies WHERE owner=?').get(owner);return row?JSON.parse(row.value):{enabled:false,courseId:'course-light',maxAmountCents:15000,dailyLimit:2,id:null,updatedAt:null};},
+  setAutopilot(owner,policy){db.prepare('INSERT INTO autopilot_policies VALUES (?,?) ON CONFLICT(owner) DO UPDATE SET value=excluded.value').run(owner,put(policy));return policy;},
+  reserveAutopilot(owner,caseId,policy){const day=new Date().toISOString().slice(0,10);db.exec('BEGIN IMMEDIATE');try{const existing=db.prepare('SELECT 1 FROM autopilot_reservations WHERE owner=? AND case_id=?').get(owner,caseId);const count=db.prepare('SELECT count(*) AS n FROM autopilot_reservations WHERE owner=? AND day=?').get(owner,day).n;if(existing||count>=policy.dailyLimit){db.exec('COMMIT');return false;}db.prepare('INSERT INTO autopilot_reservations VALUES (?,?,?,?,?)').run(owner,caseId,policy.id,day,new Date().toISOString());db.exec('COMMIT');return true;}catch(e){db.exec('ROLLBACK');throw e;}},
   authorize(id){db.prepare('UPDATE sessions SET operator=1 WHERE id=?').run(id);},
   grant(owner,s){db.exec('BEGIN IMMEDIATE');try{grantRecord(owner,s);save(owner,s);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}},
   seedAccess(owner,s){if(s.capture?.source==='sample'&&canOpenLesson(s))grantRecord(owner,s);},
