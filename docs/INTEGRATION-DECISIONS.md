@@ -1,6 +1,6 @@
 # Darius backend integration: safety-first branch
 
-This branch integrates selected backend safeguards into the current PayTrace app. It preserves the existing four-specialist AI review, opt-in sandbox automation, customer portal, and Azure-facing course-service contract. It is **not** a merge of the full `backend-paytrace-recover` branch and has not been deployed.
+This branch integrates compatible backend safeguards and the Recovery Center into the current PayTrace app. It preserves the existing four-specialist AI review, opt-in sandbox automation, customer portal, and Azure-facing course-service contract. It is **not** a merge of the full `backend-paytrace-recover` branch and has not been deployed.
 
 ## Integrated now
 
@@ -13,8 +13,10 @@ This branch integrates selected backend safeguards into the current PayTrace app
 - A verified PayPal refund, reversal, or denial event puts the matching case on a provisional hold. Fresh PayPal reads update the hold, and PayTrace blocks grant actions and its customer lesson route while the hold remains.
 - A fresh full refund, reversal, or denial also suspends the exact entitlement in the separate reference course service, using a stable idempotency key and a fresh inactive-access check. A mismatch or uncertain suspension keeps the payment hold and retries safely. Partial refunds remain manual. The customer portal explains the pause without exposing payment details.
 - Anonymous `/api/state` creation is limited in SQLite to 20 new sessions per network address per hour and 500 public demo workspaces per database. Existing sessions continue to work. This closes unbounded workspace creation on the public demo route, but the cap needs operator monitoring and a deliberate retention policy before a production pilot.
-- The existing database can now be backed up to an encrypted, SQLite-consistent snapshot and restored to a new file for a row-count and integrity check. This is a manual operator command; scheduling and off-host retention remain release work. See [BACKUPS.md](BACKUPS.md).
+- The existing database can now be backed up to an encrypted, SQLite-consistent snapshot and restored to a new file for a row-count and integrity check. The worker schedules a daily local backup when configured; off-host retention remains release work. See [BACKUPS.md](BACKUPS.md).
 - Darius's workspace pulse now appears on the recovery desk. It prioritizes due internal reminders, customer replies, unfinished verification, source failures, and overdue paid access using current workspace records. The snapshot and CSV omit private conversation text; CSV export requires the operator session. Merchants can set a case to low, normal, or high priority with revision checks; this changes queue order without changing payment evidence, approval, or access.
+- The Recovery Center adds analytics, notifications, history and freshness-aware receipts, explainable or AI-assisted prioritization, bounded follow-up automation, a searchable audit chain, expiring team links with role checks, and an operations view. New actions use the existing webhook, PayPal, Render, AI, and course-service paths. See [RECOVERY-CENTER.md](RECOVERY-CENTER.md).
+- The durable worker now schedules encrypted backup and restore probes when private backup storage and an encryption key are configured. A manual backup can be queued from Operations.
 
 ## Explicit choices still needed
 

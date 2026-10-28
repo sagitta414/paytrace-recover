@@ -52,7 +52,7 @@ See [integration setup](docs/SETUP.md), [product scope](docs/PRODUCT.md), [demo 
 
 The [development plan](docs/DEVELOPMENT_PLAN.md) sequences the Render and AG Studio build, live integration checks, and the later merchant pilot.
 
-The [safety-first backend integration decisions](docs/INTEGRATION-DECISIONS.md) describe the current Darius work being brought into a separate branch, the merchant-identity and course-connector choices, and the connected acceptance gate before deployment.
+The [safety-first backend integration decisions](docs/INTEGRATION-DECISIONS.md) describe the Darius work brought into a separate branch, the merchant-identity and course-connector choices, and the connected acceptance gate before deployment. The new [Recovery Center](docs/RECOVERY-CENTER.md) adds analytics, verification receipts, alerts, follow-up automation, audit records, and scoped team access to the Node-backed demo.
 
 ## Structure
 

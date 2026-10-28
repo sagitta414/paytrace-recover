@@ -1,11 +1,12 @@
 import {createCase,simulatePayment,canOpenLesson,fingerprint} from './core.mjs';
 import {diagnose,scanCases,relatedCases} from './diagnosis.mjs';
+import {proofFresh} from './verification-policy.mjs';
 export {diagnose,scanCases,relatedCases};
 export function seedPortfolio(primary,now=Date.now()){
  const fixtures=[['match','Nora',11],['match','Eli',9],['wrong-account','Alex',18],['expired','Sam',24],['pending','Jo',16],['match','Luca',1]];
  return [primary,...fixtures.map(([scenario,name,age],i)=>{const s=simulatePayment(createCase(scenario,primary.id+'-P'+(i+1)));s.customerName=name;s.order.userId='learner-'+name.toLowerCase();s.capture.userId=s.order.userId;s.entitlement.userId=s.order.userId;s.currentAccountId=scenario==='wrong-account'?'learner-other':s.order.userId;s.paidAt=new Date(now-age*60000).toISOString();s.merchantId=primary.merchantId||'demo-merchant';return s;})];
 }
-export function proofIsCurrent(s){return s.phase==='verified'&&s.proof?.passed&&s.proof.fingerprint===fingerprint(s)&&canOpenLesson(s);}
+export function proofIsCurrent(s){return s.phase==='verified'&&s.proof?.passed&&proofFresh(s)&&s.proof.fingerprint===fingerprint(s)&&canOpenLesson(s);}
 export function customerDraft(s,{mode='browser-simulation'}={}){
  const name=s.customerName||'Maya',d=diagnose(s);let text,kind;
  if(proofIsCurrent(s)) {kind='verified';text=`Hi ${name}, we checked access to your Light & Story Workshop purchase (${s.order.id}). The access check passed at ${s.proof.at}. Please sign in to the account used for your purchase and open the first lesson. You do not need to pay again. If you still have trouble, reply with what you see.`;}

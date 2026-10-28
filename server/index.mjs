@@ -2,13 +2,17 @@ import {originConfig} from './origins.mjs';
 import {checkConnection} from './connection-check.mjs';
 import {paypalClient} from './paypal.mjs';
 import {workspaceOverview,workspaceCsv} from '../dist/workspace-model.mjs';
+import {recoveryAnalytics,requirePermission,permissionFor,masked} from './recovery-center.mjs';
+import {prioritize} from './prioritization.mjs';
+import {createBackup} from './backups.mjs';
 import http from 'node:http';import {readFile} from 'node:fs/promises';import path from 'node:path';import {fileURLToPath} from 'node:url';import {timingSafeEqual} from 'node:crypto';import {openStore} from './store.mjs';import {createService} from './service.mjs';
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../dist');
 export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./data/courselatch.sqlite'),options={}){
  const paypal=options.paypal||paypalClient(env,options.fetcher||fetch);
  const service=createService(store,env,{paypal,probe:async token=>{const address=server.address();if(!address||typeof address==='string')throw Error('Content service unavailable.');const r=await fetch(`http://127.0.0.1:${address.port}/api/learner/content`,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Protected content could not be retrieved.');return r.json();}}),attempts=new Map();const originPolicy=originConfig(env),publicUrl=originPolicy.publicUrl;
+ store.center.configure(env.AUDIT_HMAC_KEY);
  function equal(a,b){if(!a||!b)return false;const aa=Buffer.from(a),bb=Buffer.from(b);return aa.length===bb.length&&timingSafeEqual(aa,bb)}
- const server=http.createServer(async(req,res)=>{const json=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value))};try{
+ const server=http.createServer(async(req,res)=>{let teamRole=null;const json=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(teamRole&&status<400?masked(value,teamRole):value))};try{
   const url=new URL(req.url,publicUrl);const route=url.pathname;
   if(route==='/health')return json(200,{ok:true});
   if(route==='/api/paypal/webhook'){
@@ -43,9 +47,33 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
     if(route==='/api/customer/message'&&req.method==='POST')return json(200,store.support.mutate(identity.owner,identity.case_id,body));
     return json(404,{error:'Endpoint not found.'});
    }
-   const cookie=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('cl_session='))?.slice(11);let session=cookie?store.get(cookie):null;
+   if(route==='/api/team/session'&&req.method==='POST'){
+    const member=store.center.authenticate(body.token);
+    res.setHeader('Set-Cookie',`pt_team=${body.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${publicUrl.protocol==='https:'?'; Secure':''}`);
+    return json(200,{ok:true,role:member.role});
+   }
+   if(route==='/api/team/logout'&&req.method==='POST'){
+    res.setHeader('Set-Cookie',`pt_team=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${publicUrl.protocol==='https:'?'; Secure':''}`);
+    return json(200,{ok:true});
+   }
+   const teamToken=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('pt_team='))?.slice(8);
+   const member=teamToken?store.center.authenticate(teamToken):null;
+   const cookie=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('cl_session='))?.slice(11);
+   let session=member?store.get(member.owner):cookie?store.get(cookie):null;
    if(!session){if(req.method!=='GET'||route!=='/api/state')return json(401,{error:'Start a demo session first.'});session=store.createPublicDemo(req.socket.remoteAddress);res.setHeader('Set-Cookie',`cl_session=${session.id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${publicUrl.protocol==='https:'?'; Secure':''}`)}
+   if(member){teamRole=member.role;requirePermission(member.role,permissionFor(route,req.method,body));session={...session,operator:session.operator&&['admin','manager'].includes(member.role)};}
    if(route==='/api/state'&&req.method==='GET')return json(200,{state:session.state,operator:session.operator});
+   if(route==='/api/identity'&&req.method==='GET')return json(200,{actor:member?.label||'Demo workspace owner',role:member?.role||'admin',operator:session.operator,productionAuthentication:false});
+   if(route==='/api/team'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Unlock the operator session to view team access.'});return json(200,{items:store.center.members(session.id)});}
+   if(route==='/api/analytics'&&req.method==='GET')return json(200,recoveryAnalytics(store.listCases(session.id),Object.fromEntries(url.searchParams)));
+   if(route==='/api/notifications'&&req.method==='GET'){store.center.tick(session.id);return json(200,{items:store.center.notifications(session.id)});}
+   if(route==='/api/verification'&&req.method==='GET')return json(200,store.center.receipt(session.id,url.searchParams.get('caseId')));
+   if(route==='/api/history'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Unlock the operator session to view case history.'});return json(200,{items:store.center.timeline(session.id,url.searchParams.get('caseId'))});}
+   if(route==='/api/prioritization'&&req.method==='GET')return json(200,await prioritize(store.listCases(session.id),{env,fetcher:options.fetcher||fetch}));
+   if(route==='/api/automation'&&req.method==='GET')return json(200,store.center.settings(session.id));
+   if(route==='/api/audit'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Unlock the operator session to view audit records.'});return json(200,store.center.auditLog(session.id,Object.fromEntries(url.searchParams)));}
+   if(route==='/api/providers'&&req.method==='GET')return json(200,{paypal:{configured:!!(env.PAYPAL_CLIENT_ID&&env.PAYPAL_CLIENT_SECRET),webhookConfigured:!!env.PAYPAL_WEBHOOK_ID}});
+   if(route==='/api/operations/status'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Unlock the operator session to view operations.'});const worker=store.durable.status('worker'),backup=store.durable.status('backup');return json(200,{database:store.databaseCheck(),worker:{running:!!worker&&Date.now()-Date.parse(worker.at)<150000,lastRun:worker?.at||null},backup,liveAcceptance:{verified:false,reason:'Connected acceptance has not been recorded.'},authentication:{configured:false,mfaRequired:false},courseConnector:!!(env.COURSE_ACCESS_URL&&env.COURSE_ACCESS_API_KEY),audit:{keyed:!!env.AUDIT_HMAC_KEY,checkpoint:null},deployment:'Sandbox demonstration. Production identity and connected acceptance are pending.',jobs:store.durable.jobs().filter(job=>!job.owner||job.owner===session.id),events:store.durable.events()});}
    if(route==='/api/support/inbox'&&req.method==='GET')return json(200,{items:store.support.inbox(session.id)});
    if(route==='/api/support/reminders'&&req.method==='GET')return json(200,{items:store.support.reminders(session.id)});
    if(route==='/api/support/outcomes'&&req.method==='GET')return json(200,{confirmedCaseIds:store.support.confirmedCaseIds(session.id)});
@@ -67,6 +95,16 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    if(route==='/api/run-report'&&req.method==='GET')return json(200,service.runReport(session.id));
    if(route==='/api/lesson'&&req.method==='GET'){try{return json(200,await service.lesson(session.id))}catch{return json(403,{error:'Course access is locked.'})}}
    if(req.method!=='POST')return json(405,{error:'POST required.'});
+   if(route==='/api/team/invite'){if(!session.operator)return json(403,{error:'Unlock the operator session to invite team members.'});const invite=store.center.invite(session.id,body);store.center.audit(session.id,{actor:member?.label||'owner',role:member?.role||'admin',action:'team.invite',detail:invite.role});return json(200,{...invite,url:new URL('/recovery.html#team='+encodeURIComponent(invite.token),publicUrl).href});}
+   if(route==='/api/team/revoke'){if(!session.operator)return json(403,{error:'Unlock the operator session to revoke team access.'});store.center.revoke(session.id,body.id);store.center.audit(session.id,{actor:member?.label||'owner',role:member?.role||'admin',action:'team.revoke'});return json(200,{ok:true});}
+   if(route==='/api/notifications/read'){if(!session.operator)return json(403,{error:'Unlock the operator session to manage notifications.'});store.center.markRead(session.id,body.id);return json(200,{ok:true});}
+   if(route==='/api/prioritization'){if(!session.operator)return json(403,{error:'Unlock the operator session before asking AI to rank cases.'});return json(200,await prioritize(store.listCases(session.id),{env,fetcher:options.fetcher||fetch,ai:true}));}
+   if(route==='/api/automation'){if(!session.operator)return json(403,{error:'Unlock the operator session to change follow-up settings.'});return json(200,store.center.setSettings(session.id,body));}
+   if(route==='/api/automation/run'){if(!session.operator)return json(403,{error:'Unlock the operator session to check follow-ups.'});return json(200,store.center.tick(session.id));}
+   if(route==='/api/paypal/reconcile'){if(!session.operator)return json(403,{error:'Unlock the operator session to reconcile payment records.'});const result=await service.scan(session.id);return json(200,{checkedAt:result.checkedAt,cases:result.cases.length,notice:'Fresh reads only; no payment capture or access grant.'});}
+   if(route==='/api/operations/run'){if(!session.operator)return json(403,{error:'Unlock the operator session to run maintenance.'});await cycle();return json(200,{ok:true});}
+   if(route==='/api/operations/backup'){if(!session.operator)return json(403,{error:'Unlock the operator session to run a backup.'});if(!env.BACKUP_DIR||!env.BACKUP_ENCRYPTION_KEY)return json(400,{error:'Configure private encrypted backups on the server first.'});store.durable.queue({id:'backup-manual:'+Date.now(),kind:'backup'});return json(200,{queued:true});}
+   if(route==='/api/operations/retry'){if(!session.operator)return json(403,{error:'Unlock the operator session to retry maintenance.'});const job=store.durable.job(body.id);if(!job||job.owner&&job.owner!==session.id)return json(403,{error:'Job is outside this workspace.'});store.durable.retry(body.id);return json(200,{ok:true});}
    if(route==='/api/support'){
     if(!session.operator)return json(403,{error:'Unlock the operator session in the checkout & setup desk first.'});
     const id=body.caseId;store.caseById(session.id,id);
@@ -78,15 +116,15 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    }
    if(route==='/api/support/reminder'){if(!session.operator)return json(403,{error:'Unlock the operator session first.'});return json(200,{reminder:store.support.reminder(session.id,body.caseId,body.dueAt,body.note)});}
    if(route==='/api/support/update-promise'){if(!session.operator)return json(403,{error:'Unlock the operator session first.'});return json(200,{nextUpdateAt:store.support.updatePromise(session.id,body.caseId,body.dueAt)});}
-   if(route==='/api/case/priority'){if(!session.operator)return json(403,{error:'Unlock the operator session to manage case priority.'});return json(200,store.setCasePriority(session.id,body.caseId,body.priority,body.expectedRevision));}
+   if(route==='/api/case/priority'){if(!session.operator)return json(403,{error:'Unlock the operator session to manage case priority.'});const result=store.setCasePriority(session.id,body.caseId,body.priority,body.expectedRevision);store.center.audit(session.id,{actor:member?.label||'owner',role:member?.role||'admin',action:'case.priority',caseId:body.caseId});return json(200,result);}
    if(route==='/api/monitor/scan'){const result=await service.scan(session.id,body);setImmediate(()=>service.autoTriage(session.id).catch(()=>{}));return json(200,result)}
    if(route==='/api/autopilot'){const policy=await service.setAutopilot(session.id,body);if(policy.enabled)setImmediate(()=>service.autoTriage(session.id).catch(()=>{}));return json(200,{policy,ready:service.autopilotReady()});}
    if(route==='/api/learner/session'){if(body.caseId!==undefined&&body.caseId!==session.state.id)return json(409,{error:'The selected case changed. Reopen it from the queue before continuing.'});if(session.state.currentAccountId&&session.state.currentAccountId!==session.state.order.userId)return json(403,{error:'Sign in with the purchasing account before opening a learner session.'});const token=store.mintLearnerToken(session.id,session.state.id);res.setHeader('Set-Cookie',`cl_learner=${token}; Path=/api/learner; HttpOnly; SameSite=Strict; Max-Age=600${publicUrl.protocol==='https:'?'; Secure':''}`);return json(200,{ok:true,mode:'Scoped demonstration learner session; not production sign-in'});}
    if(route==='/api/operator'){const entry=attempts.get(session.id)||{count:0,until:Date.now()+600000};if(Date.now()>entry.until){entry.count=0;entry.until=Date.now()+600000}entry.count++;attempts.set(session.id,entry);if(entry.count>5)return json(429,{error:'Too many attempts. Try later.'});if(!equal(body.key,env.DEMO_OPERATOR_KEY))return json(403,{error:'Operator key is not configured or does not match.'});store.authorize(session.id);return json(200,{ok:true})}
    if(route==='/api/agent/question'){if(!session.operator)return json(403,{error:'Unlock the operator session before asking an AI specialist.'});return json(200,await service.agentQuestion(session.id,body));}
-   if(route==='/api/action')return json(200,await service.action(session.id,body));
-   if(route==='/api/paypal/create')return json(200,await service.paypalCreate(session.id,body.caseId));
-   if(route==='/api/paypal/capture'){const result=await service.paypalCapture(session.id,body.orderId,body.caseId);await service.scan(session.id);setImmediate(()=>service.autoTriage(session.id).catch(()=>{}));return json(200,result);}
+   if(route==='/api/action'){const result=await service.action(session.id,body);store.center.audit(session.id,{actor:member?.label||'owner',role:member?.role||'admin',action:'case.'+String(body.action).slice(0,80),caseId:body.caseId||session.state.id});return json(200,result);}
+   if(route==='/api/paypal/create'){const result=await service.paypalCreate(session.id,body.caseId);store.center.audit(session.id,{actor:member?.label||'owner',role:member?.role||'admin',action:'paypal.create',caseId:body.caseId||session.state.id});return json(200,result);}
+   if(route==='/api/paypal/capture'){const result=await service.paypalCapture(session.id,body.orderId,body.caseId);store.center.audit(session.id,{actor:member?.label||'owner',role:member?.role||'admin',action:'paypal.capture',caseId:body.caseId||session.state.id});await service.scan(session.id);setImmediate(()=>service.autoTriage(session.id).catch(()=>{}));return json(200,result);}
    return json(404,{error:'Endpoint not found.'});
   }
   if(!['GET','HEAD'].includes(req.method))return json(405,{error:'Method not allowed.'});
@@ -95,13 +133,15 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
  }catch(e){json(e.status||400,{error:e.message?.slice(0,250)||'Request failed.'})}});
  let workerTimer,working=false,lastEnsure=0;
  async function cycle(){if(working)return;working=true;try{
-  const d=store.durable;if(Date.now()-lastEnsure>30000){for(const owner of store.owners())d.queue({id:'scan:'+owner,owner,kind:'scan'});d.queue({id:'mail',kind:'mail'});lastEnsure=Date.now();}
+  const d=store.durable;if(Date.now()-lastEnsure>30000){for(const owner of store.owners())d.queue({id:'scan:'+owner,owner,kind:'scan'});d.queue({id:'mail',kind:'mail'});if(env.BACKUP_DIR&&env.BACKUP_ENCRYPTION_KEY)d.queue({id:'backup',kind:'backup'});lastEnsure=Date.now();}
   for(let n=0;n<3;n++){const job=d.claimJob();if(!job)break;const heartbeat=setInterval(()=>{try{d.heartbeat(job.id,job.token)}catch{}},10000);heartbeat.unref();
-   try{if(job.kind==='scan'||job.kind==='webhook-reconcile'){await service.scan(job.owner);await service.autoTriage(job.owner);d.finish(job,{repeatMs:job.kind==='scan'?30000:undefined});}
+   try{if(job.kind==='scan'||job.kind==='webhook-reconcile'){await service.scan(job.owner);await service.autoTriage(job.owner);store.center.tick(job.owner);d.finish(job,{repeatMs:job.kind==='scan'?30000:undefined});}
     else if(job.kind==='mail'){await store.support.flush(env,publicUrl);d.finish(job,{repeatMs:5000});}
+    else if(job.kind==='backup'){await createBackup(store,env);d.finish(job,{repeatMs:job.id==='backup'?24*3600000:undefined});}
     else d.fail(job,'UNKNOWN_JOB');
-   }catch{d.fail(job,job.kind==='scan'?'SCAN_FAILED':'MAIL_FAILED');}finally{clearInterval(heartbeat);}
+   }catch{d.fail(job,job.kind==='scan'?'SCAN_FAILED':job.kind==='mail'?'MAIL_FAILED':'BACKUP_FAILED');}finally{clearInterval(heartbeat);}
   }
+  d.setStatus('worker',{at:new Date().toISOString()});
  }finally{working=false;}}
  server.on('listening',()=>{workerTimer=setInterval(()=>cycle().catch(()=>{}),1000);workerTimer.unref();});
  server.on('close',()=>clearInterval(workerTimer));return {server,store,service};

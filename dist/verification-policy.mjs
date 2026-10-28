@@ -1,0 +1,4 @@
+export const DEFAULT_VERIFICATION_AGE_MS=5*60000;
+export function verificationAge(env={}){const n=Number(env.VERIFICATION_MAX_AGE_SECONDS||300);if(!Number.isInteger(n)||n<60||n>3600)throw Error('VERIFICATION_MAX_AGE_SECONDS must be 60–3600.');return n*1000;}
+export function proofFresh(s,now=Date.now()){const at=Date.parse(s.proof?.at),limit=s.verificationMaxAgeMs||DEFAULT_VERIFICATION_AGE_MS,end=Math.min(Date.parse(s.proof?.expiresAt)||Infinity,at+limit);return Number.isFinite(at)&&at<=now+30000&&now<end;}
+export function verificationStatus(s,now=Date.now()){return {lastVerifiedAt:s.lastPassingVerification?.at||(s.proof?.passed?s.proof.at:null),expiresAt:s.proof?.at?new Date(Date.parse(s.proof.at)+(s.verificationMaxAgeMs||DEFAULT_VERIFICATION_AGE_MS)).toISOString():null,fresh:proofFresh(s,now),paymentHold:s.paymentHold||null};}

@@ -6,6 +6,7 @@ import {createCase,simulatePayment,canOpenLesson} from '../dist/core.mjs';
 import {seedPortfolio} from '../dist/operations.mjs';
 import {customerSupport} from './customer-support.mjs';
 import {durability} from './durability.mjs';
+import {recoveryCenter} from './recovery-center.mjs';
 export function openStore(file){
  if(file!==':memory:')mkdirSync(dirname(file),{recursive:true});
  const db=new DatabaseSync(file),locks=new Map();
@@ -38,6 +39,7 @@ export function openStore(file){
  }
  const support=customerSupport(db,{caseById,content});
  const durable=durability(db);
+ const center=recoveryCenter(db,{getCase:caseById,listCases,support,grace:owner=>db.prepare('SELECT grace FROM monitor_settings WHERE owner=?').get(owner)?.grace||5});
  function create(){const id=randomUUID(),state=simulatePayment(createCase('match','CL-'+randomUUID().slice(0,12)));db.prepare('INSERT INTO sessions VALUES (?,?,0,?)').run(id,put(state),Date.now());init(id);return {id,state,operator:false};}
  function createPublicDemo(address){const bucket=Math.floor(Date.now()/3600000),key=hash(String(address||'unknown'));db.exec('BEGIN IMMEDIATE');try{
   db.prepare('DELETE FROM demo_creation_limits WHERE bucket<?').run(bucket-24);
@@ -50,7 +52,7 @@ export function openStore(file){
  }catch(e){db.exec('ROLLBACK');throw e;}}
  function casePriority(owner,caseId){caseById(owner,caseId);const row=db.prepare('SELECT priority,revision,updated AS updatedAt FROM case_preferences WHERE owner=? AND case_id=?').get(owner,caseId);return {caseId,...(row||{priority:'normal',revision:0,updatedAt:null})};}
  function setCasePriority(owner,caseId,priority,expectedRevision){caseById(owner,caseId);if(!['low','normal','high'].includes(priority)||!Number.isInteger(expectedRevision)||expectedRevision<0)throw Error('Choose a valid priority and current revision.');const old=casePriority(owner,caseId);if(old.revision!==expectedRevision){const error=Error('Priority changed in another tab. Reload before saving.');error.status=409;throw error;}const updatedAt=new Date().toISOString();const write=db.prepare('INSERT INTO case_preferences VALUES (?,?,?,?,?) ON CONFLICT(owner,case_id) DO UPDATE SET priority=excluded.priority,revision=excluded.revision,updated=excluded.updated WHERE case_preferences.revision=?').run(owner,caseId,priority,expectedRevision+1,updatedAt,expectedRevision);if(!write.changes){const error=Error('Priority changed in another tab. Reload before saving.');error.status=409;throw error;}return casePriority(owner,caseId);}
- return {support,durable,
+ return {support,durable,center,
   backupTo:destination=>backup(db,destination),
   databaseCheck:()=>db.prepare('PRAGMA quick_check').get().quick_check==='ok',
   create,createPublicDemo,get,save,saveCase:savePortfolioCase,listCases,caseById,
