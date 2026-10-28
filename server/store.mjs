@@ -21,6 +21,7 @@ export function openStore(file){
  db.exec(`CREATE TABLE IF NOT EXISTS demo_workspaces (owner TEXT PRIMARY KEY, created INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS demo_creation_limits (key TEXT NOT NULL, bucket INTEGER NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(key,bucket));
  CREATE TABLE IF NOT EXISTS access_intents (owner TEXT NOT NULL, case_id TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(owner,case_id));`);
+ db.exec('CREATE TABLE IF NOT EXISTS case_preferences (owner TEXT NOT NULL,case_id TEXT NOT NULL,priority TEXT NOT NULL,revision INTEGER NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(owner,case_id));');
  db.exec('PRAGMA busy_timeout=5000');
  const put=s=>JSON.stringify(s),hash=token=>createHash('sha256').update(token).digest('hex');
  function saveCase(owner,state){durable.guard(owner);db.prepare('INSERT INTO cases VALUES (?,?,?) ON CONFLICT(owner,id) DO UPDATE SET value=excluded.value').run(owner,state.id,put(state));support.sync(owner,state);}
@@ -47,6 +48,8 @@ export function openStore(file){
   db.prepare('INSERT INTO demo_creation_limits VALUES (?,?,1) ON CONFLICT(key,bucket) DO UPDATE SET count=count+1').run(key,bucket);
   db.exec('COMMIT');return session;
  }catch(e){db.exec('ROLLBACK');throw e;}}
+ function casePriority(owner,caseId){caseById(owner,caseId);const row=db.prepare('SELECT priority,revision,updated AS updatedAt FROM case_preferences WHERE owner=? AND case_id=?').get(owner,caseId);return {caseId,...(row||{priority:'normal',revision:0,updatedAt:null})};}
+ function setCasePriority(owner,caseId,priority,expectedRevision){caseById(owner,caseId);if(!['low','normal','high'].includes(priority)||!Number.isInteger(expectedRevision)||expectedRevision<0)throw Error('Choose a valid priority and current revision.');const old=casePriority(owner,caseId);if(old.revision!==expectedRevision){const error=Error('Priority changed in another tab. Reload before saving.');error.status=409;throw error;}const updatedAt=new Date().toISOString();const write=db.prepare('INSERT INTO case_preferences VALUES (?,?,?,?,?) ON CONFLICT(owner,case_id) DO UPDATE SET priority=excluded.priority,revision=excluded.revision,updated=excluded.updated WHERE case_preferences.revision=?').run(owner,caseId,priority,expectedRevision+1,updatedAt,expectedRevision);if(!write.changes){const error=Error('Priority changed in another tab. Reload before saving.');error.status=409;throw error;}return casePriority(owner,caseId);}
  return {support,durable,
   backupTo:destination=>backup(db,destination),
   databaseCheck:()=>db.prepare('PRAGMA quick_check').get().quick_check==='ok',
@@ -58,6 +61,8 @@ export function openStore(file){
   webhookSeen(eventId){return !!db.prepare('SELECT 1 FROM paypal_webhook_events WHERE id=?').get(eventId);},
   markWebhook(eventId,owner,caseId){db.prepare('INSERT OR IGNORE INTO paypal_webhook_events VALUES (?,?,?,?)').run(eventId,owner,caseId,new Date().toISOString());},
   owners(){return db.prepare('SELECT id FROM sessions').all().map(r=>r.id);},
+  preferences(owner){get(owner)||listCases(owner);return db.prepare('SELECT case_id AS caseId,priority,revision,updated AS updatedAt FROM case_preferences WHERE owner=?').all(owner);},
+  casePriority,setCasePriority,
   grace(owner){return db.prepare('SELECT grace FROM monitor_settings WHERE owner=?').get(owner)?.grace||5;},
   setGrace(owner,n){db.prepare('INSERT INTO monitor_settings VALUES (?,?) ON CONFLICT(owner) DO UPDATE SET grace=excluded.grace').run(owner,n);},
   autopilot(owner){const row=db.prepare('SELECT value FROM autopilot_policies WHERE owner=?').get(owner);return row?JSON.parse(row.value):{enabled:false,courseId:'course-light',maxAmountCents:15000,dailyLimit:2,id:null,updatedAt:null};},

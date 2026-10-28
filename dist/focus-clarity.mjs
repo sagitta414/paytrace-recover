@@ -1,7 +1,7 @@
 import {crew,findings,reviewIsCurrent,evidenceSnapshot} from './core.mjs';
 import {proofIsCurrent} from './operations.mjs';
 import {esc,when} from './customer-shared.mjs';
-import {mountPulse} from './workspace-widgets.mjs';
+import {mountPulse,mountPriority} from './workspace-widgets.mjs';
 
 export function agentRunView(s){
  const run=s?.agentRun;if(!run)return null;
@@ -35,6 +35,7 @@ export function mountClarity(root,s,{cases=[],screen='cases',busy=false,uncertai
   section.innerHTML=priorities(cases).map(group=>`<button class="priority-card ${group.tone}" ${busy||!group.items.length?'disabled':''} ${group.items.length?`data-case="${esc(group.items[0].id)}"`:''}><span class="priority-number">${group.items.length}</span><span><strong>${group.title}</strong><small>${group.detail}</small><em>${group.items.length?'Open first case →':'No cases waiting here'}</em></span></button>`).join('');overview.after(section);mountPulse(root,{cases,backend:window.COURSELATCH_RUNTIME?.backend===true,busy,uncertain,onSelect:caseId=>root.dispatchEvent(new CustomEvent('paytrace-select-case',{detail:caseId}))});return;
  }
  const head=root.querySelector('.sheet-head'),main=root.querySelector('.case-evidence-column');if(!head||!main)return;
+ mountPriority(root,s,{backend:window.COURSELATCH_RUNTIME?.backend===true,busy,uncertain});
  const handoff=caseHandoff(s,uncertain),banner=document.createElement('section');banner.className='clarity-handoff '+handoff.tone;
  const last=s.events?.at(-1);
  banner.innerHTML=`<div><span class="eyebrow">UP NEXT · ${esc(handoff.owner)}</span><h2>${esc(handoff.title)}</h2><p>${esc(handoff.detail)}</p></div><span class="clarity-stamp">${last?'Last recorded activity<br>'+esc(when(last.at)):'No activity recorded yet'}</span>`;head.append(banner);

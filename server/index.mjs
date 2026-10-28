@@ -52,12 +52,13 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    if(route==='/api/support'&&req.method==='GET')return json(200,store.support.view(session.id,url.searchParams.get('caseId'),true));
    if(route==='/api/case'&&req.method==='GET')return json(200,await service.caseInfo(session.id,url.searchParams.get('caseId')));
    if(route==='/api/operations'&&req.method==='GET')return json(200,{cases:store.listCases(session.id),graceMinutes:store.grace(session.id)});
-   if(route==='/api/workspace'&&req.method==='GET')return json(200,workspaceOverview(store.listCases(session.id),{reminders:store.support.reminders(session.id),followups:store.support.inbox(session.id),graceMinutes:store.grace(session.id)}));
+   if(route==='/api/workspace'&&req.method==='GET')return json(200,workspaceOverview(store.listCases(session.id),{preferences:store.preferences(session.id),reminders:store.support.reminders(session.id),followups:store.support.inbox(session.id),graceMinutes:store.grace(session.id)}));
    if(route==='/api/workspace/export'&&req.method==='GET'){
     if(!session.operator)return json(403,{error:'Unlock the operator session before exporting the queue.'});
-    const csv=workspaceCsv(workspaceOverview(store.listCases(session.id),{reminders:store.support.reminders(session.id),followups:store.support.inbox(session.id),graceMinutes:store.grace(session.id)}));
+    const csv=workspaceCsv(workspaceOverview(store.listCases(session.id),{preferences:store.preferences(session.id),reminders:store.support.reminders(session.id),followups:store.support.inbox(session.id),graceMinutes:store.grace(session.id)}));
     res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="paytrace-queue.csv"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(csv);
    }
+   if(route==='/api/case/priority'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Unlock the operator session to manage case priority.'});return json(200,store.casePriority(session.id,url.searchParams.get('caseId')));}
    if(route==='/api/autopilot'&&req.method==='GET')return json(200,{policy:store.autopilot(session.id),ready:service.autopilotReady()});
    if(route==='/api/connection-check'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Unlock the operator session before testing configured connections.'});return json(200,await checkConnection(url.searchParams.get('kind'),env));}
    const expectedCase=url.searchParams.get('caseId');if(['/api/draft','/api/receipt','/api/run-report','/api/lesson'].includes(route)&&expectedCase&&expectedCase!==session.state.id)return json(409,{error:'The selected case changed. Reopen it from the queue before continuing.'});
@@ -77,6 +78,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    }
    if(route==='/api/support/reminder'){if(!session.operator)return json(403,{error:'Unlock the operator session first.'});return json(200,{reminder:store.support.reminder(session.id,body.caseId,body.dueAt,body.note)});}
    if(route==='/api/support/update-promise'){if(!session.operator)return json(403,{error:'Unlock the operator session first.'});return json(200,{nextUpdateAt:store.support.updatePromise(session.id,body.caseId,body.dueAt)});}
+   if(route==='/api/case/priority'){if(!session.operator)return json(403,{error:'Unlock the operator session to manage case priority.'});return json(200,store.setCasePriority(session.id,body.caseId,body.priority,body.expectedRevision));}
    if(route==='/api/monitor/scan'){const result=await service.scan(session.id,body);setImmediate(()=>service.autoTriage(session.id).catch(()=>{}));return json(200,result)}
    if(route==='/api/autopilot'){const policy=await service.setAutopilot(session.id,body);if(policy.enabled)setImmediate(()=>service.autoTriage(session.id).catch(()=>{}));return json(200,{policy,ready:service.autopilotReady()});}
    if(route==='/api/learner/session'){if(body.caseId!==undefined&&body.caseId!==session.state.id)return json(409,{error:'The selected case changed. Reopen it from the queue before continuing.'});if(session.state.currentAccountId&&session.state.currentAccountId!==session.state.order.userId)return json(403,{error:'Sign in with the purchasing account before opening a learner session.'});const token=store.mintLearnerToken(session.id,session.state.id);res.setHeader('Set-Cookie',`cl_learner=${token}; Path=/api/learner; HttpOnly; SameSite=Strict; Max-Age=600${publicUrl.protocol==='https:'?'; Secure':''}`);return json(200,{ok:true,mode:'Scoped demonstration learner session; not production sign-in'});}
