@@ -43,7 +43,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
     return json(404,{error:'Endpoint not found.'});
    }
    const cookie=req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('cl_session='))?.slice(11);let session=cookie?store.get(cookie):null;
-   if(!session){if(req.method!=='GET'||route!=='/api/state')return json(401,{error:'Start a demo session first.'});session=store.create();res.setHeader('Set-Cookie',`cl_session=${session.id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${publicUrl.protocol==='https:'?'; Secure':''}`)}
+   if(!session){if(req.method!=='GET'||route!=='/api/state')return json(401,{error:'Start a demo session first.'});session=store.createPublicDemo(req.socket.remoteAddress);res.setHeader('Set-Cookie',`cl_session=${session.id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${publicUrl.protocol==='https:'?'; Secure':''}`)}
    if(route==='/api/state'&&req.method==='GET')return json(200,{state:session.state,operator:session.operator});
    if(route==='/api/support/inbox'&&req.method==='GET')return json(200,{items:store.support.inbox(session.id)});
    if(route==='/api/support/reminders'&&req.method==='GET')return json(200,{items:store.support.reminders(session.id)});
@@ -83,10 +83,18 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
   if(!['GET','HEAD'].includes(req.method))return json(405,{error:'Method not allowed.'});
   let pathname=decodeURIComponent(route);if(pathname.endsWith('/'))pathname+='index.html';const file=path.resolve(ROOT,'.'+pathname);if(!file.startsWith(ROOT+path.sep))return json(403,{error:'Forbidden.'});let bytes;try{bytes=await readFile(file)}catch{return json(404,{error:'Not found.'})}
   const types={'.html':'text/html; charset=utf-8','.css':'text/css','.mjs':'text/javascript','.js':'text/javascript','.svg':'image/svg+xml','.webp':'image/webp','.png':'image/png'};res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(req.method==='HEAD'?undefined:bytes);
- }catch(e){json(400,{error:e.message?.slice(0,250)||'Request failed.'})}});
- let monitorTimer,mailTimer,scanning=false,mailing=false;
- server.on('listening',()=>{mailTimer=setInterval(async()=>{if(mailing)return;mailing=true;try{await store.support.flush(env,publicUrl);}catch{}finally{mailing=false;}},5000);mailTimer.unref();});server.on('close',()=>clearInterval(mailTimer));
- server.on('listening',()=>{monitorTimer=setInterval(async()=>{if(scanning)return;scanning=true;try{for(const id of store.owners()){await service.scan(id).catch(()=>{});await service.autoTriage(id).catch(()=>{});}}finally{scanning=false;}},30000);monitorTimer.unref();});
- server.on('close',()=>clearInterval(monitorTimer));return {server,store,service};
+ }catch(e){json(e.status||400,{error:e.message?.slice(0,250)||'Request failed.'})}});
+ let workerTimer,working=false,lastEnsure=0;
+ async function cycle(){if(working)return;working=true;try{
+  const d=store.durable;if(Date.now()-lastEnsure>30000){for(const owner of store.owners())d.queue({id:'scan:'+owner,owner,kind:'scan'});d.queue({id:'mail',kind:'mail'});lastEnsure=Date.now();}
+  for(let n=0;n<3;n++){const job=d.claimJob();if(!job)break;const heartbeat=setInterval(()=>{try{d.heartbeat(job.id,job.token)}catch{}},10000);heartbeat.unref();
+   try{if(job.kind==='scan'){await service.scan(job.owner);await service.autoTriage(job.owner);d.finish(job,{repeatMs:30000});}
+    else if(job.kind==='mail'){await store.support.flush(env,publicUrl);d.finish(job,{repeatMs:5000});}
+    else d.fail(job,'UNKNOWN_JOB');
+   }catch{d.fail(job,job.kind==='scan'?'SCAN_FAILED':'MAIL_FAILED');}finally{clearInterval(heartbeat);}
+  }
+ }finally{working=false;}}
+ server.on('listening',()=>{workerTimer=setInterval(()=>cycle().catch(()=>{}),1000);workerTimer.unref();});
+ server.on('close',()=>clearInterval(workerTimer));return {server,store,service};
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){const {server}=createApp();server.listen(Number(process.env.PORT||4358),'0.0.0.0',()=>console.log('PayTrace Recover: '+(process.env.PUBLIC_URL||'http://127.0.0.1:4358')))}

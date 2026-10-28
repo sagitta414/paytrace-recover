@@ -36,9 +36,9 @@ export function courseAccessClient(env, fetcher = fetch) {
   };
   return {
     check,
-    async grant(s) {
+    async grant(s, operationKey = `paytrace:${s.id}:${s.capture?.id}`) {
       if (s.capture?.source !== 'paypal-sandbox' || s.capture.status !== 'COMPLETED') throw Error('A completed PayPal sandbox capture is required.');
-      const value = await request('v1/access/grants', identity(s), `paytrace:${s.id}:${s.capture.id}`);
+      const value = await request('v1/access/grants', identity(s), operationKey);
       if (value?.userId !== s.order.userId || value?.courseId !== s.order.courseId || value?.captureId !== s.capture.id || value?.active !== true) {
         throw Error('Course access service did not confirm the approved grant.');
       }

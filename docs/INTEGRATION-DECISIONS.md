@@ -1,0 +1,22 @@
+# Darius backend integration: safety-first branch
+
+This branch integrates selected backend safeguards into the current PayTrace app. It preserves the existing four-specialist AI review, opt-in sandbox automation, customer portal, and Azure-facing course-service contract. It is **not** a merge of the full `backend-paytrace-recover` branch and has not been deployed.
+
+## Integrated now
+
+- SQLite-backed scheduled scan and mail jobs with leases, retries, and restart persistence replace the two in-process timers. The existing `service.scan`, `service.autoTriage`, and customer mail flow remain the job handlers.
+- An external grant intent is saved before the course-service request. If its outcome is uncertain, PayTrace checks the current entitlement on retry and never sends a second grant for that intent. The existing course-service idempotency key remains unchanged.
+- Render workflow jobs have a deadline. Expired callbacks cannot resume the old job or repeat a grant; merchant review or read-only verification is required.
+- A verified PayPal refund, reversal, or denial event puts the matching case on a provisional hold. Fresh PayPal reads update the hold, and PayTrace blocks grant actions and its customer lesson route while the hold remains.
+- Anonymous `/api/state` creation is limited in SQLite to 20 new sessions per network address per hour and 500 public demo workspaces per database. Existing sessions continue to work. This closes unbounded workspace creation on the public demo route, but the cap needs operator monitoring and a deliberate retention policy before a production pilot.
+
+## Explicit choices still needed
+
+- **Merchant identity:** retain the current demo operator key for the public demonstration. Integrate Darius's OIDC/MFA account and team model only with a defined tenant migration and role-to-action policy. It should be a separate change so existing sandbox cases and customer links are not silently reassigned.
+- **Course connector:** retain `COURSE_ACCESS_URL` and `COURSE_ACCESS_API_KEY` plus the current `/v1/access/*` reference contract for this integration. Darius's `COURSE_API_URL` connector has a different identity and suspension contract; choose one contract and migrate the reference service and acceptance tests together.
+- **Refund suspension:** the current hold blocks PayTrace actions and PayTrace-served lessons. It does not revoke direct access at an independent course platform. A production connector must support and verify suspension before claiming that refunded access has been revoked.
+- **Automation approval:** opt-in policy grants remain narrowly bounded to sandbox cases. Reconcile that standing merchant authorization with role-based approvals and audit language before enabling it for multi-merchant use.
+
+## Release gate
+
+Keep this branch out of the hosted app until PayPal sandbox credentials and a Render Workflow are configured and an end-to-end acceptance run proves: exact capture match, model-backed review, merchant approval or explicit standing policy, one course-service grant, protected-lesson verification, restart-safe job processing, signed refund/reversal hold, and clear customer status. Run `npm test` and inspect the connected run report before promoting the branch.

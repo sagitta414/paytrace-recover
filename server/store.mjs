@@ -5,6 +5,7 @@ import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import {createCase,simulatePayment,canOpenLesson} from '../dist/core.mjs';
 import {seedPortfolio} from '../dist/operations.mjs';
 import {customerSupport} from './customer-support.mjs';
+import {durability} from './durability.mjs';
 export function openStore(file){
  if(file!==':memory:')mkdirSync(dirname(file),{recursive:true});
  const db=new DatabaseSync(file),locks=new Map();
@@ -17,6 +18,10 @@ export function openStore(file){
  CREATE TABLE IF NOT EXISTS course_access (owner TEXT NOT NULL, case_id TEXT NOT NULL, learner TEXT NOT NULL, course TEXT NOT NULL, capture TEXT NOT NULL, PRIMARY KEY(owner,case_id));
  CREATE TABLE IF NOT EXISTS learner_tokens (hash TEXT PRIMARY KEY, owner TEXT NOT NULL, case_id TEXT NOT NULL, learner TEXT NOT NULL, course TEXT NOT NULL, expires INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS paypal_webhook_events (id TEXT PRIMARY KEY, owner TEXT NOT NULL, case_id TEXT NOT NULL, processed_at TEXT NOT NULL);`);
+ db.exec(`CREATE TABLE IF NOT EXISTS demo_workspaces (owner TEXT PRIMARY KEY, created INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS demo_creation_limits (key TEXT NOT NULL, bucket INTEGER NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(key,bucket));
+ CREATE TABLE IF NOT EXISTS access_intents (owner TEXT NOT NULL, case_id TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(owner,case_id));`);
+ db.exec('PRAGMA busy_timeout=5000');
  const put=s=>JSON.stringify(s),hash=token=>createHash('sha256').update(token).digest('hex');
  function saveCase(owner,state){db.prepare('INSERT INTO cases VALUES (?,?,?) ON CONFLICT(owner,id) DO UPDATE SET value=excluded.value').run(owner,state.id,put(state));support.sync(owner,state);}
  function get(id){const row=db.prepare('SELECT * FROM sessions WHERE id=?').get(id);return row?{id,state:JSON.parse(row.value),operator:!!row.operator}:null;}
@@ -27,12 +32,25 @@ export function openStore(file){
  function caseById(owner,id){init(owner);const r=db.prepare('SELECT value FROM cases WHERE owner=? AND id=?').get(owner,id);if(!r)throw Error('Case does not belong to this workspace.');return JSON.parse(r.value);}
  function savePortfolioCase(owner,s){saveCase(owner,s);if(get(owner)?.state.id===s.id)save(owner,s);}
  function content(owner,caseId,learner,course){const s=caseById(owner,caseId),a=db.prepare('SELECT * FROM course_access WHERE owner=? AND case_id=?').get(owner,caseId);
-  if(!a||!canOpenLesson(s)||learner!==s.order.userId||course!==s.order.courseId||a.learner!==learner||a.course!==course||a.capture!==s.capture.id)throw Error('Course access is locked or belongs to another learner.');
+  if(!a||s.paymentHold||!canOpenLesson(s)||learner!==s.order.userId||course!==s.order.courseId||a.learner!==learner||a.course!==course||a.capture!==s.capture.id)throw Error('Course access is locked or belongs to another learner.');
   return {accessible:true,userId:learner,courseId:course,captureId:a.capture,contentId:'light-lesson-01',lesson:'See the light',title:'Find the light before the frame.',body:'Find a window with soft, indirect daylight. Place an everyday object beside it. Make three frames: facing the light, beside it, and against it.'};
  }
  const support=customerSupport(db,{caseById,content});
- return {support,
-  create(){const id=randomUUID(),state=simulatePayment(createCase('match','CL-'+randomUUID().slice(0,12)));db.prepare('INSERT INTO sessions VALUES (?,?,0,?)').run(id,put(state),Date.now());init(id);return {id,state,operator:false};},get,save,saveCase:savePortfolioCase,listCases,caseById,
+ const durable=durability(db);
+ function create(){const id=randomUUID(),state=simulatePayment(createCase('match','CL-'+randomUUID().slice(0,12)));db.prepare('INSERT INTO sessions VALUES (?,?,0,?)').run(id,put(state),Date.now());init(id);return {id,state,operator:false};}
+ function createPublicDemo(address){const bucket=Math.floor(Date.now()/3600000),key=hash(String(address||'unknown'));db.exec('BEGIN IMMEDIATE');try{
+  db.prepare('DELETE FROM demo_creation_limits WHERE bucket<?').run(bucket-24);
+  const total=db.prepare('SELECT count(*) AS n FROM demo_workspaces').get().n;
+  const hourly=db.prepare('SELECT count FROM demo_creation_limits WHERE key=? AND bucket=?').get(key,bucket)?.count||0;
+  if(total>=500||hourly>=20){const e=Error('Public demo capacity reached. Try again later or use an existing session.');e.status=429;throw e;}
+  const session=create();db.prepare('INSERT INTO demo_workspaces VALUES (?,?)').run(session.id,Date.now());
+  db.prepare('INSERT INTO demo_creation_limits VALUES (?,?,1) ON CONFLICT(key,bucket) DO UPDATE SET count=count+1').run(key,bucket);
+  db.exec('COMMIT');return session;
+ }catch(e){db.exec('ROLLBACK');throw e;}}
+ return {support,durable,
+  create,createPublicDemo,get,save,saveCase:savePortfolioCase,listCases,caseById,
+  accessIntent(owner,caseId){const row=db.prepare('SELECT value FROM access_intents WHERE owner=? AND case_id=?').get(owner,caseId);return row?JSON.parse(row.value):null;},
+  saveAccessIntent(owner,caseId,value){caseById(owner,caseId);db.prepare('INSERT INTO access_intents VALUES (?,?,?) ON CONFLICT(owner,case_id) DO UPDATE SET value=excluded.value').run(owner,caseId,put(value));},
   readAccess(owner,s){caseById(owner,s.id);const a=db.prepare('SELECT * FROM course_access WHERE owner=? AND case_id=?').get(owner,s.id);return a?{userId:a.learner,courseId:a.course,active:true,captureId:a.capture}:{userId:s.order.userId,courseId:s.order.courseId,active:false,captureId:null};},
   findByPaypalOrder(orderId){return db.prepare("SELECT owner,id FROM cases WHERE json_extract(value,'$.paypalOrderId')=? LIMIT 2").all(orderId);},
   webhookSeen(eventId){return !!db.prepare('SELECT 1 FROM paypal_webhook_events WHERE id=?').get(eventId);},

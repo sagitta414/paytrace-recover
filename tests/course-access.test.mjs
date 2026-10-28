@@ -48,7 +48,7 @@ test('course service grant failure does not record a repair or verify access', a
     await assert.rejects(svc.customerLesson(id,created.state.id),/still being checked/);
     await svc.action(id,{action:'investigate'});const preview=await svc.action(id,{action:'rehearse'});
     await svc.action(id,{action:'approve',planId:preview.state.rehearsal.id});
-    await assert.rejects(svc.action(id,{action:'repair'}),/course service unavailable/);
+    await assert.rejects(svc.action(id,{action:'repair'}),/uncertain/);
     assert.equal(db.get(id).state.writes,0);assert.equal(db.get(id).state.phase,'approved');
   } finally {db.close();}
 });
@@ -136,4 +136,49 @@ test('PayTrace completes a sandbox case through the separate HTTP course service
     const retry=await svc.action(id,{action:'repair'});
     assert.equal(retry.state.writes,1);
   } finally {await new Promise(resolve=>server.close(resolve));close();db.close();}
+});
+
+test('an ambiguous external grant is reconciled without sending a second grant', async () => {
+  const db=openStore(':memory:');
+  try {
+    const {id}=db.create();db.authorize(id);
+    let active=false,grants=0;
+    const course={
+      check:async s=>({userId:s.order.userId,courseId:s.order.courseId,active,captureId:active?s.capture.id:null}),
+      grant:async()=>{grants++;active=true;throw Error('Transport timed out after the grant');},
+      probe:async s=>({accessible:active,userId:s.order.userId,courseId:s.order.courseId,captureId:s.capture.id,contentId:'light-lesson-01',body:'An independently protected lesson was returned to the learner.'})
+    };
+    const svc=createService(db,{}, {paypal,course});
+    const created=await svc.action(id,{action:'create-case',requestId:randomUUID(),customerName:'Maya',mode:'sandbox'});
+    await svc.paypalCreate(id,created.state.id);await svc.paypalCapture(id,'ORDER-sandbox',created.state.id);
+    await svc.action(id,{action:'investigate'});
+    const preview=await svc.action(id,{action:'rehearse'});
+    await svc.action(id,{action:'approve',planId:preview.state.rehearsal.id});
+    await assert.rejects(svc.action(id,{action:'repair'}),/uncertain/);
+    assert.equal(grants,1);assert.equal(db.accessIntent(id,created.state.id).state,'uncertain');
+    const result=await svc.action(id,{action:'repair'});
+    assert.equal(grants,1);assert.equal(result.state.writes,1);assert.equal(result.state.phase,'verified');
+  } finally {db.close();}
+});
+
+test('a payment reversal trigger places the case on hold before any new grant', async () => {
+  const db=openStore(':memory:');
+  try {
+    const {id}=db.create();db.authorize(id);
+    let status='COMPLETED',grants=0;
+    const source={...paypal,refresh:async s=>({...s.capture,status})};
+    const course={check:async s=>({userId:s.order.userId,courseId:s.order.courseId,active:false,captureId:null}),grant:async()=>{grants++;throw Error('Must not grant');},probe:async()=>{throw Error('Locked');}};
+    const svc=createService(db,{}, {paypal:source,course});
+    const created=await svc.action(id,{action:'create-case',requestId:randomUUID(),customerName:'Maya',mode:'sandbox'});
+    await svc.paypalCreate(id,created.state.id);await svc.paypalCapture(id,'ORDER-sandbox',created.state.id);
+    await svc.action(id,{action:'investigate'});const preview=await svc.action(id,{action:'rehearse'});
+    await svc.action(id,{action:'approve',planId:preview.state.rehearsal.id});
+    status='REVERSED';
+    const event={id:'WH-reversal-1',event_type:'PAYMENT.CAPTURE.REVERSED',resource:{supplementary_data:{related_ids:{order_id:'ORDER-sandbox'}}}};
+    const response=await svc.paypalWebhook(event);
+    assert.equal(response.hold,true);assert.equal(db.get(id).state.paymentHold.status,'REVERSED');
+    await assert.rejects(svc.action(id,{action:'repair'}));
+    await assert.rejects(svc.customerLesson(id,created.state.id),/Payment is on hold/);
+    assert.equal(grants,0);
+  } finally {db.close();}
 });
