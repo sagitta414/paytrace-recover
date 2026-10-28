@@ -41,9 +41,9 @@ The original PayTrace design remains in `source/` as historical design material.
 
 ## Prototype boundaries
 
-One isolated demo merchant workspace with multiple fictional learners and one course per session. No production payments, refunds, email sending, external LMS connector, webhook listener, or production merchant authentication. The storefront deliberately injects an access-update failure after capture; it does not diagnose an actual third-party store outage. The AI interprets supplied records but cannot authorize or execute writes. Citations are checked for valid source IDs, not automatically proven factually correct. Merchant approval and deterministic checks remain necessary.
+Default mode uses isolated fictional merchant workspaces. Configured verified-account mode adds OIDC/MFA, durable memberships, provider webhooks, optional email and a purchase-scoped external course connector. PayPal remains sandbox-only; no live business acceptance is claimed. The storefront deliberately injects an access-update failure after capture; it does not diagnose an actual third-party store outage. The AI interprets supplied records but cannot authorize or execute writes. Citations are checked for valid source IDs, not automatically proven factually correct. Merchant approval and deterministic checks remain necessary.
 
-SQLite persistence and an in-process session lock support a single web-service instance. A production service needs tenant authentication, transactional idempotency with shared storage, webhook signature validation, retention controls, reconciliation jobs, refund/revocation handling, and a real course platform adapter. Approval is specific to the previewed evidence. Verification checks current state, not a permanent guarantee.
+SQLite/WAL, database-backed leases, durable jobs and external-write intents support one durable host, with optional same-host worker processes. Multi-host horizontal scaling is not enabled. Authenticated deployment requires your configured identity provider, course bridge, secret keys, external audit sink and live acceptance checks. Approval is specific to the previewed evidence. Verification checks current state, not a permanent guarantee.
 
 PayTrace Recover is a working name, not a trademark-clearance claim. This is an independent project, not an official PayPal product.
 
@@ -78,11 +78,15 @@ Open `/story.html` for the interactive Merchant/Customer story, including a succ
 
 This source package incorporates upstream revision `087dc2306d1a32bbd0fac1f202a1f552b9cea190` and the earlier local UI fixes. Additional backend checks enforce workflow stage order, persist completed stage results for safe callback retries, reject stale case identifiers from browser tabs, validate JSON request objects and byte limits, and refresh existing sandbox captures without capturing again. Browser actions pass the selected case ID to the backend.
 
-Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL is http://127.0.0.1:4358; configure both `PORT` and `PUBLIC_URL` when choosing another port. Use `.env.example` for optional integration configuration. The complete suite contains 110 tests, including HTTP, persistence, private customer support, and mocked provider contracts. Live PayPal, AI, workflow, and email acceptance tests still require your own credentials.
+Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL is http://127.0.0.1:4358; configure both `PORT` and `PUBLIC_URL` when choosing another port. Use `.env.example` for optional integration configuration. The complete suite contains 154 tests, including HTTP, persistence, private customer support, and mocked provider contracts. Live PayPal, AI, workflow, and email acceptance tests still require your own credentials.
 
 See [workspace and backend improvements](docs/WORKSPACE-IMPROVEMENTS.md) for the recovery pulse, persistent priorities, queue CSV export, workflow expiry, validation and setup boundaries.
 
 
 ## Recovery Center
 
-Open `/recovery.html` for analytics, bounded follow-ups, security audit search, team roles, payment reconciliation, case history, notifications, explainable AI suggestions and traceable recovery receipts. See [Recovery Center setup and limitations](docs/RECOVERY-CENTER.md). This source includes 128 passing tests. Team links are a sandbox access mechanism; production identity, live provider acceptance and external audit checkpoints still require setup.
+Open `/recovery.html` for analytics, bounded follow-ups, security audit search, team roles, payment reconciliation, case history, notifications, explainable AI suggestions and traceable recovery receipts. See [Recovery Center setup and limitations](docs/RECOVERY-CENTER.md). This source includes 154 passing tests. Demo team links are separate from verified-account memberships. Provider activation, protected keys and external audit/backup destinations require server configuration.
+
+## Final backend safeguards
+
+See [final setup and handoff](docs/FINAL-SETUP.md) for verified OIDC/MFA accounts, durable memberships, expiring evidence, refund/reversal holds, external course writes, persistent job leases, encrypted backup/restore probes, signed audit checkpoints, operations alerts and opt-in live acceptance. No credentials or runtime data are included.

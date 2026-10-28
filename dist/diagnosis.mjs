@@ -1,5 +1,9 @@
+import {proofFresh} from './verification-policy.mjs';
 // Shared deterministic diagnosis. AI may explain these facts, never override eligibility.
 export function diagnose(s,now=Date.now()) {
+ if(s.restrictedView&&s.redactedDiagnosis)return s.redactedDiagnosis;
+ if(s.paymentHold)return {code:'payment_hold',title:'Payment changed — review required',detail:'Access is paused or under review after a provider payment change.',next:'Review payment evidence with the merchant. No repeat grant is allowed.',repair:false};
+
  const result=(code,title,detail,next,repair=false)=>({code,title,detail,next,repair});
  if(s.evidenceAvailable===false)return result('missing_evidence','Payment evidence unavailable','The original payment cannot be read. A receipt alone does not establish current status.','Request fresh payment evidence.');
  if(!s.capture)return result('unpaid','No captured payment','Checkout has not produced a captured payment.','Complete or inspect checkout.');
@@ -17,7 +21,7 @@ export function validateGrace(value){const n=Number(value);if(!Number.isInteger(
 export function deliveryCheck(s,{now=Date.now(),graceMinutes=5}={}) {
  validateGrace(graceMinutes);const diagnosis=diagnose(s,now),paidAt=Date.parse(s.paidAt||s.capture?.createdAt||'');
  const elapsedMinutes=Number.isFinite(paidAt)?Math.max(0,(now-paidAt)/60000):null;
- let status=diagnosis.code==='access_present'?(s.phase==='verified'&&s.proof?.passed?'resolved':'access_present'):diagnosis.code==='pending_payment'?'payment_pending':diagnosis.code==='unpaid'?'unpaid':'review';
+ let status=diagnosis.code==='access_present'?(s.phase==='verified'&&s.proof?.passed&&proofFresh(s,now)?'resolved':'access_present'):diagnosis.code==='pending_payment'?'payment_pending':diagnosis.code==='unpaid'?'unpaid':'review';
  if(diagnosis.code==='missing_enrollment')status=elapsedMinutes===null?'unknown_age':elapsedMinutes<graceMinutes?'waiting':'attention';
  return {status,diagnosis,elapsedMinutes,graceMinutes,checkedAt:new Date(now).toISOString()};
 }

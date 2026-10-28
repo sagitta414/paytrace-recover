@@ -6,3 +6,6 @@ qa/
 .env.*
 !.env.example
 data/
+private/
+backups/
+*.pbackup

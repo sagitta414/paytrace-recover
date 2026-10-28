@@ -1,3 +1,5 @@
+Current setup and updated deployment behavior: [FINAL-SETUP.md](FINAL-SETUP.md). The release notes below describe the initial Recovery Center increment.
+
 # Recovery Center: setup, behavior and verification
 
 The Recovery Center is available at `/recovery.html` from the Recovery pulse and footer. These features extend the existing sandbox prototype; they do not turn it into a production payment or identity system.

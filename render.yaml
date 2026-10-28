@@ -21,3 +21,41 @@ services:
         sync: false
       - key: DEMO_OPERATOR_KEY
         generateValue: true
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_REQUIRED
+        value: "true"
+      - key: OIDC_ISSUER
+        sync: false
+      - key: OIDC_CLIENT_ID
+        sync: false
+      - key: OIDC_CLIENT_SECRET
+        sync: false
+      - key: OIDC_ACCOUNT_URL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_EMAILS
+        sync: false
+      - key: COURSE_API_URL
+        sync: false
+      - key: COURSE_API_TOKEN
+        sync: false
+      - key: COURSE_ID
+        sync: false
+      - key: COURSE_NAME
+        sync: false
+      - key: COURSE_AMOUNT_MINOR
+        value: "12800"
+      - key: COURSE_CURRENCY
+        value: USD
+      - key: AUDIT_HMAC_KEY
+        generateValue: true
+      - key: BACKUP_DIR
+        value: /var/data/backups
+      - key: BACKUP_ENCRYPTION_KEY
+        sync: false
+      - key: AUDIT_CHECKPOINT_URL
+        sync: false
+      - key: AUDIT_CHECKPOINT_TOKEN
+        sync: false

@@ -10,7 +10,7 @@ export function workspaceOverview(cases,{preferences=[],reminders=[],followups=[
  const counts={total:cases.length,verified:0,overdueAccess:0,verificationNeeded:0,followupsDue:0,customerWaiting:0,sourceIssues:0,workflowIssues:0,workflowRunning:0,notChecked:0};
  const rows=cases.map(s=>{
   const d=diagnose(s,now),verified=currentOutcome(s),preference=prefs.get(s.id)||{priority:'normal',revision:0,updatedAt:null},reminder=due.get(s.id),reply=replies.get(s.id);
-  const dueNow=!!reminder&&Date.parse(reminder.dueAt)<=now,unavailable=s.evidenceAvailable===false||hasUnavailable(s),verification=!!s.writes&&!verified,overdue=deliveryCheck(s,{now,graceMinutes}).status==='attention',workflowIssue=!!s.job?.error&&!verified;
+  const dueNow=!!reminder&&Date.parse(reminder.dueAt)<=now,unavailable=s.evidenceAvailable===false||hasUnavailable(s),verification=!!(s.writes||s.proof?.passed)&&!verified,overdue=deliveryCheck(s,{now,graceMinutes}).status==='attention',workflowIssue=!!s.job?.error&&!verified;
   if(verified)counts.verified++;if(overdue)counts.overdueAccess++;if(verification)counts.verificationNeeded++;if(dueNow)counts.followupsDue++;if(reply)counts.customerWaiting++;if(unavailable)counts.sourceIssues++;if(workflowIssue)counts.workflowIssues++;if(s.job?.pending)counts.workflowRunning++;if(!s.sources)counts.notChecked++;
   const reasons=[];let score=0;
   if(dueNow){reasons.push('Follow-up is due');score+=100;}
