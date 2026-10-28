@@ -82,3 +82,7 @@ Run `npm ci`, `npm test`, and `npm start` with Node 24 or newer. The default URL
 
 See [workspace and backend improvements](docs/WORKSPACE-IMPROVEMENTS.md) for the recovery pulse, persistent priorities, queue CSV export, workflow expiry, validation and setup boundaries.
 
+
+## Recovery Center
+
+Open `/recovery.html` for analytics, bounded follow-ups, security audit search, team roles, payment reconciliation, case history, notifications, explainable AI suggestions and traceable recovery receipts. See [Recovery Center setup and limitations](docs/RECOVERY-CENTER.md). This source includes 128 passing tests. Team links are a sandbox access mechanism; production identity, live provider acceptance and external audit checkpoints still require setup.

@@ -3,7 +3,7 @@ import {fingerprint} from '../dist/core.mjs';
 export async function readCaseSources(s,owner,{paypal,access}){
  const before=fingerprint(s),previous=s.sources||{},at=new Date().toISOString();
  const results=await Promise.allSettled([
-  Promise.resolve().then(()=>{if(s.capture?.source==='paypal-sandbox')return paypal.refresh(s);if(s.scenario==='missing'&&s.evidenceAvailable===false)throw Error('Missing sample record');return s.capture;}),
+  Promise.resolve().then(()=>{if(s.paypalOrderId||s.capture?.source==='paypal-sandbox')return paypal.refresh(s);if(s.scenario==='missing'&&s.evidenceAvailable===false)throw Error('Missing sample record');return s.capture;}),
   Promise.resolve().then(()=>access(owner,s)).then(value=>{if(!value||typeof value.active!=='boolean'||typeof value.userId!=='string'||typeof value.courseId!=='string')throw Error('Invalid access response');return value;})
  ]);
  const names=['payment','access'];s.sources={};
