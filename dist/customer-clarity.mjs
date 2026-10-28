@@ -1,5 +1,6 @@
 import {esc,when} from './customer-shared.mjs';
 export function customerNext(s){
+ if(s.paymentHold)return {owner:'Merchant',title:'Payment review in progress',detail:'Access is paused while the merchant checks a change to the payment. You do not need to pay again. You can ask for an update below.'};
  if(s.help)return {owner:'Merchant',title:'Your request is still open',detail:'You have asked for more help. Describe what is still going wrong in the conversation below.'};
  if(s.request)return {owner:'You',title:'The merchant needs your reply',detail:s.request};
  if(s.verified&&s.confirmedAt)return {owner:'No action needed',title:'You confirmed that access works',detail:'Your confirmation is recorded. You can return here if you need more help.'};

@@ -18,7 +18,28 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
  function agentProgress(s,id){return async({agent,step,status})=>{noteSpecialistProgress(agent,status);s.agentRun={...s.agentRun,status:'running',step,agent,completed:status==='completed'?[...s.agentRun.completed,step]:s.agentRun.completed,updatedAt:new Date().toISOString()};store.save(id,s);};}
  function finishAgentRun(s,id){s.agentRun={...s.agentRun,status:'complete',step:'done',agent:null,updatedAt:new Date().toISOString()};store.save(id,s);}
  function failAgentRun(s,id){s.agentRun={...(s.agentRun||{mode:'unknown',completed:[],startedAt:new Date().toISOString()}),status:'failed',updatedAt:new Date().toISOString()};store.save(id,s);}
- async function fresh(s,id){const ok=await readCaseSources(s,id,{paypal,access:(owner,state)=>external(state)?course.check(state):access(owner,state),accessSystem:external(s)?'External course access service':'Course access service'});if(['REFUNDED','REVERSED','DENIED','DECLINED','FAILED','PARTIALLY_REFUNDED'].includes(s.capture?.status)){s.paymentHold={status:s.capture.status,at:new Date().toISOString()};s.approval=null;s.rehearsal=null;s.review=null;s.proof=null;s.phase='payment-hold';}store.saveCase(id,s);if(!ok)throw Error('Payment or course access records are unavailable. Refresh both systems before continuing.');}
+ async function fresh(s,id){
+  const savedCaptureId=s.capture?.id;
+  const ok=await readCaseSources(s,id,{paypal,access:(owner,state)=>external(state)?course.check(state):access(owner,state),accessSystem:external(s)?'External course access service':'Course access service'});
+  const status=s.capture?.status,full=['REFUNDED','REVERSED','DENIED','DECLINED','FAILED'].includes(status),partial=status==='PARTIALLY_REFUNDED';
+  if(full||partial){
+   const changed=s.paymentHold?.status!==status;
+   s.paymentHold={...s.paymentHold,status,at:changed?new Date().toISOString():s.paymentHold.at,action:full?'suspend':'review'};
+   s.approval=null;s.rehearsal=null;s.review=null;s.proof=null;s.phase='payment-hold';
+   if(changed)record(s,full?'Fresh PayPal evidence confirms an adverse payment change. Access is on hold.':'A partial refund requires merchant review. Access is on hold.');
+   store.saveCase(id,s);
+   if(full&&external(s)&&ok&&s.entitlement?.active&&s.entitlement.captureId===s.capture.id){
+    const c=s.capture,o=s.order,exact=c.source==='paypal-sandbox'&&c.id===savedCaptureId&&c.orderId===o.id&&c.userId===o.userId&&c.courseId===o.courseId&&c.amount===o.amount&&c.currency===o.currency;
+    if(!exact){s.paymentHold.suspensionState='identity-mismatch';store.saveCase(id,s);throw Error('Payment identity changed. Course suspension requires merchant review.');}
+    if(typeof course.suspend!=='function'){s.paymentHold.suspensionState='unsupported';store.saveCase(id,s);throw Error('Course service cannot confirm access suspension. Payment hold remains.');}
+    try{const current=await course.suspend(s,`suspend:${s.id}:${s.capture.id}`);s.entitlement=current;s.paymentHold.externalSuspended=true;s.paymentHold.suspensionState='confirmed';record(s,'Course service confirmed access suspension for the exact purchase.');store.saveCase(id,s);}
+    catch{s.paymentHold.suspensionState='pending';store.saveCase(id,s);throw Error('Course access suspension is not confirmed. Payment hold remains and will be retried.');}
+   }
+   if(!ok)throw Error('Payment or course access records are unavailable. Payment hold remains.');
+   return;
+  }
+  store.saveCase(id,s);if(!ok)throw Error('Payment or course access records are unavailable. Refresh both systems before continuing.');
+ }
  async function repairApproved(s,id,{policyRun=false}={}){
   const prior=external(s)?store.accessIntent(id,s.id):null;
   await fresh(s,id);
