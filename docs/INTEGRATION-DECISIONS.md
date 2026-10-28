@@ -14,6 +14,7 @@ This branch integrates selected backend safeguards into the current PayTrace app
 - A fresh full refund, reversal, or denial also suspends the exact entitlement in the separate reference course service, using a stable idempotency key and a fresh inactive-access check. A mismatch or uncertain suspension keeps the payment hold and retries safely. Partial refunds remain manual. The customer portal explains the pause without exposing payment details.
 - Anonymous `/api/state` creation is limited in SQLite to 20 new sessions per network address per hour and 500 public demo workspaces per database. Existing sessions continue to work. This closes unbounded workspace creation on the public demo route, but the cap needs operator monitoring and a deliberate retention policy before a production pilot.
 - The existing database can now be backed up to an encrypted, SQLite-consistent snapshot and restored to a new file for a row-count and integrity check. This is a manual operator command; scheduling and off-host retention remain release work. See [BACKUPS.md](BACKUPS.md).
+- Darius's read-only workspace pulse now appears on the recovery desk. It prioritizes due internal reminders, customer replies, unfinished verification, source failures, and overdue paid access using current workspace records. The snapshot and CSV omit private conversation text; CSV export requires the operator session. Priority labels shown in this version are informational defaults, not editable merchant preferences.
 
 ## Explicit choices still needed
 

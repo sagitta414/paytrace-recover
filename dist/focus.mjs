@@ -28,6 +28,7 @@ const storageKey='paytrace-focus-v1';
 const drafts=new Map();
 function draftFor(s){const fresh=customerDraft(s),old=drafts.get(s.id);if(old?.evidenceFingerprint===fresh.evidenceFingerprint&&old.kind===fresh.kind)return old;drafts.set(s.id,fresh);return fresh;}
 const api=createApi(); let syncRequired=false;
+root.addEventListener('paytrace-select-case',e=>run('select-case',{caseId:e.detail}));
 function save(){if(!backend)try{sessionStorage.setItem(storageKey,JSON.stringify(cases))}catch{}}
 function merge(s){const i=cases.findIndex(x=>x.id===s.id);if(i<0)cases.push(s);else cases[i]=s;selected=s.id;}
 function current(){return cases.find(s=>s.id===selected)}
