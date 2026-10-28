@@ -1,0 +1,2 @@
+import {restoreBackup} from './backups.mjs';
+const [source,destination]=process.argv.slice(2);if(!source||!destination){console.error('Usage: npm run restore -- <backup.pbackup> <new-database.sqlite>');process.exitCode=1;}else{try{const result=await restoreBackup(source,destination,process.env);console.log(JSON.stringify({restored:true,createdAt:result.createdAt,encrypted:result.encrypted,tables:Object.keys(result.counts).length}));}catch(e){console.error(e.message);process.exitCode=1;}}

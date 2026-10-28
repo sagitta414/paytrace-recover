@@ -1,4 +1,4 @@
-import {DatabaseSync} from 'node:sqlite';
+import {DatabaseSync,backup} from 'node:sqlite';
 import {mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {randomUUID,randomBytes,createHash} from 'node:crypto';
@@ -48,6 +48,8 @@ export function openStore(file){
   db.exec('COMMIT');return session;
  }catch(e){db.exec('ROLLBACK');throw e;}}
  return {support,durable,
+  backupTo:destination=>backup(db,destination),
+  databaseCheck:()=>db.prepare('PRAGMA quick_check').get().quick_check==='ok',
   create,createPublicDemo,get,save,saveCase:savePortfolioCase,listCases,caseById,
   accessIntent(owner,caseId){const row=db.prepare('SELECT value FROM access_intents WHERE owner=? AND case_id=?').get(owner,caseId);return row?JSON.parse(row.value):null;},
   saveAccessIntent(owner,caseId,value){durable.guard(owner);caseById(owner,caseId);db.prepare('INSERT INTO access_intents VALUES (?,?,?) ON CONFLICT(owner,case_id) DO UPDATE SET value=excluded.value').run(owner,caseId,put(value));},
