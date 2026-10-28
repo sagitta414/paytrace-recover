@@ -33,10 +33,14 @@ test('signed capture event finds only its sandbox case, confirms PayPal again, a
     const state=db.get(cookie.slice(11)).state;
     assert.equal(state.capture.id,'CAP-12345');assert.equal(state.writes,0);assert.equal(state.entitlement.active,false);
     assert.equal(state.sources.payment.status,'available');assert.equal(state.sources.access.status,'available');
+    assert.ok(db.durable.jobs().some(job=>job.kind==='webhook-reconcile'&&job.owner===cookie.slice(11)));
     const count=refreshes;
     assert.equal((await(await deliver(event('PP-12345'))).json()).status,'duplicate');
     assert.equal(refreshes,count);assert.equal(verifications,3);
     assert.equal((await(await deliver(event('PP-unmatched','CAP-12345','WH-unmatched'))).json()).status,'unmatched');
+    const deadline=Date.now()+3000;let followup;
+    while(Date.now()<deadline){followup=db.durable.jobs().find(job=>job.kind==='webhook-reconcile'&&job.owner===cookie.slice(11));if(followup?.state==='done')break;await new Promise(resolve=>setTimeout(resolve,100));}
+    assert.equal(followup?.state,'done');assert.equal(db.get(cookie.slice(11)).state.writes,0);
   }finally{await new Promise(resolve=>app.server.close(resolve));db.close();}
 });
 

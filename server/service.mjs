@@ -184,6 +184,7 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
     s.paymentHold={status:'PROVIDER_REVIEW_PENDING',at:new Date().toISOString(),eventType:event.event_type};s.approval=null;s.rehearsal=null;s.review=null;s.proof=null;s.phase='payment-hold';
     record(s,'Signed PayPal payment change received. Access actions are on hold pending a fresh provider check.');store.saveCase(owner,s);
     try{await fresh(s,owner)}catch{record(s,'Provider or course records could not be refreshed. Payment hold remains in place.');store.saveCase(owner,s);}
+    store.durable.queue({id:'webhook:'+eventId+':'+owner,owner,kind:'webhook-reconcile'});
     store.markWebhook(eventId,owner,caseId);return {status:'processed',caseId,hold:true};
    });
   }
@@ -208,6 +209,7 @@ export function createService(store,env=process.env,{fetcher=fetch,paypal=paypal
    try{await fresh(s,owner);}catch{record(s,'Payment confirmed, but current course access could not be read. No repair was made.');}
    scanCases([s],{graceMinutes:store.grace(owner)});
    store.saveCase(owner,s);
+   store.durable.queue({id:'webhook:'+eventId+':'+owner,owner,kind:'webhook-reconcile'});
    store.markWebhook(eventId,owner,caseId);
    return {status:'processed',caseId,access:s.sources?.access?.status||'unavailable',monitor:s.monitor?.status||null};
   });

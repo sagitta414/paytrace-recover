@@ -23,9 +23,9 @@ export function openStore(file){
  CREATE TABLE IF NOT EXISTS access_intents (owner TEXT NOT NULL, case_id TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(owner,case_id));`);
  db.exec('PRAGMA busy_timeout=5000');
  const put=s=>JSON.stringify(s),hash=token=>createHash('sha256').update(token).digest('hex');
- function saveCase(owner,state){db.prepare('INSERT INTO cases VALUES (?,?,?) ON CONFLICT(owner,id) DO UPDATE SET value=excluded.value').run(owner,state.id,put(state));support.sync(owner,state);}
+ function saveCase(owner,state){durable.guard(owner);db.prepare('INSERT INTO cases VALUES (?,?,?) ON CONFLICT(owner,id) DO UPDATE SET value=excluded.value').run(owner,state.id,put(state));support.sync(owner,state);}
  function get(id){const row=db.prepare('SELECT * FROM sessions WHERE id=?').get(id);return row?{id,state:JSON.parse(row.value),operator:!!row.operator}:null;}
- function save(owner,state){db.prepare('UPDATE sessions SET value=?,updated=? WHERE id=?').run(put(state),Date.now(),owner);saveCase(owner,state);}
+ function save(owner,state){durable.guard(owner);db.prepare('UPDATE sessions SET value=?,updated=? WHERE id=?').run(put(state),Date.now(),owner);saveCase(owner,state);}
  function grantRecord(owner,s){db.prepare('INSERT INTO course_access VALUES (?,?,?,?,?) ON CONFLICT(owner,case_id) DO NOTHING').run(owner,s.id,s.order.userId,s.order.courseId,s.capture.id);}
  function init(owner){const row=get(owner);if(!row)throw Error('Unknown workspace.');if(db.prepare('SELECT count(*) AS n FROM cases WHERE owner=?').get(owner).n)return;for(const s of seedPortfolio(row.state)){saveCase(owner,s);if(canOpenLesson(s))grantRecord(owner,s);}}
  function listCases(owner){init(owner);return db.prepare('SELECT value FROM cases WHERE owner=? ORDER BY id').all(owner).map(r=>JSON.parse(r.value));}
@@ -50,7 +50,7 @@ export function openStore(file){
  return {support,durable,
   create,createPublicDemo,get,save,saveCase:savePortfolioCase,listCases,caseById,
   accessIntent(owner,caseId){const row=db.prepare('SELECT value FROM access_intents WHERE owner=? AND case_id=?').get(owner,caseId);return row?JSON.parse(row.value):null;},
-  saveAccessIntent(owner,caseId,value){caseById(owner,caseId);db.prepare('INSERT INTO access_intents VALUES (?,?,?) ON CONFLICT(owner,case_id) DO UPDATE SET value=excluded.value').run(owner,caseId,put(value));},
+  saveAccessIntent(owner,caseId,value){durable.guard(owner);caseById(owner,caseId);db.prepare('INSERT INTO access_intents VALUES (?,?,?) ON CONFLICT(owner,case_id) DO UPDATE SET value=excluded.value').run(owner,caseId,put(value));},
   readAccess(owner,s){caseById(owner,s.id);const a=db.prepare('SELECT * FROM course_access WHERE owner=? AND case_id=?').get(owner,s.id);return a?{userId:a.learner,courseId:a.course,active:true,captureId:a.capture}:{userId:s.order.userId,courseId:s.order.courseId,active:false,captureId:null};},
   findByPaypalOrder(orderId){return db.prepare("SELECT owner,id FROM cases WHERE json_extract(value,'$.paypalOrderId')=? LIMIT 2").all(orderId);},
   webhookSeen(eventId){return !!db.prepare('SELECT 1 FROM paypal_webhook_events WHERE id=?').get(eventId);},
@@ -68,7 +68,7 @@ export function openStore(file){
   mintLearnerToken(owner,caseId,ttl=600000){const s=caseById(owner,caseId),token=randomBytes(32).toString('base64url');db.prepare('DELETE FROM learner_tokens WHERE expires<=?').run(Date.now());db.prepare('INSERT INTO learner_tokens VALUES (?,?,?,?,?,?)').run(hash(token),owner,caseId,s.order.userId,s.order.courseId,Date.now()+ttl);return token;},
   readLearnerToken(token){const r=db.prepare('SELECT * FROM learner_tokens WHERE hash=? AND expires>?').get(hash(String(token||'')),Date.now());if(!r)throw Error('Learner session is missing or expired.');return content(r.owner,r.case_id,r.learner,r.course);},
   revokeLearnerToken(token){db.prepare('DELETE FROM learner_tokens WHERE hash=?').run(hash(token));},
-  async lock(id,fn){const before=locks.get(id)||Promise.resolve();let release;const after=new Promise(r=>release=r);locks.set(id,after);await before;try{return await fn();}finally{release();if(locks.get(id)===after)locks.delete(id);}},
+  async lock(id,fn){const before=locks.get(id)||Promise.resolve();let release;const after=new Promise(r=>release=r);locks.set(id,after);await before;try{return await durable.locked(id,fn);}finally{release();if(locks.get(id)===after)locks.delete(id);}},
   close(){db.close();}
  };
 }

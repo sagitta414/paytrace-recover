@@ -19,7 +19,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    if(!event||typeof event!=='object'||Array.isArray(event))return json(400,{error:'A webhook event object is required.'});
    let verified;try{verified=await paypal.verifyWebhook(raw,req.headers)}catch{return json(503,{error:'PayPal signature check is unavailable. Retry delivery.'})}
    if(!verified)return json(401,{error:'PayPal signature verification failed.'});
-   try{const result=await service.paypalWebhook(event);if(result.status==='processed'){const owner=store.findByPaypalOrder(event.resource.supplementary_data.related_ids.order_id)[0]?.owner;if(owner)setImmediate(()=>service.autoTriage(owner).catch(()=>{}));}return json(200,result)}catch{return json(503,{error:'Webhook processing could not be confirmed. Retry delivery.'})}
+   try{return json(200,await service.paypalWebhook(event))}catch{return json(503,{error:'Webhook processing could not be confirmed. Retry delivery.'})}
   }
   if(route==='/api/learner/content'){if(req.method!=='GET')return json(405,{error:'GET required.'});const token=req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):req.headers.cookie?.split(';').map(s=>s.trim()).find(s=>s.startsWith('cl_learner='))?.slice(11);try{return json(200,store.readLearnerToken(token));}catch{return json(403,{error:'Learner authentication or course access is missing.'});}}
   if(route==='/runtime.js'){const config={backend:true,paypal:!!(env.PAYPAL_CLIENT_ID&&env.PAYPAL_CLIENT_SECRET),paypalClientId:env.PAYPAL_CLIENT_ID||'',courseAccess:!!(env.COURSE_ACCESS_URL&&env.COURSE_ACCESS_API_KEY),ai:!!(env.OPENAI_API_KEY&&env.OPENAI_MODEL),workflows:!!(env.RENDER_API_KEY&&env.WORKFLOW_SECRET&&env.RENDER_INVESTIGATE_TASK&&env.RENDER_RECOVER_TASK)};res.writeHead(200,{'Content-Type':'text/javascript','Cache-Control':'no-store'});return res.end('window.COURSELATCH_RUNTIME='+JSON.stringify(config)+';')}
@@ -88,7 +88,7 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
  async function cycle(){if(working)return;working=true;try{
   const d=store.durable;if(Date.now()-lastEnsure>30000){for(const owner of store.owners())d.queue({id:'scan:'+owner,owner,kind:'scan'});d.queue({id:'mail',kind:'mail'});lastEnsure=Date.now();}
   for(let n=0;n<3;n++){const job=d.claimJob();if(!job)break;const heartbeat=setInterval(()=>{try{d.heartbeat(job.id,job.token)}catch{}},10000);heartbeat.unref();
-   try{if(job.kind==='scan'){await service.scan(job.owner);await service.autoTriage(job.owner);d.finish(job,{repeatMs:30000});}
+   try{if(job.kind==='scan'||job.kind==='webhook-reconcile'){await service.scan(job.owner);await service.autoTriage(job.owner);d.finish(job,{repeatMs:job.kind==='scan'?30000:undefined});}
     else if(job.kind==='mail'){await store.support.flush(env,publicUrl);d.finish(job,{repeatMs:5000});}
     else d.fail(job,'UNKNOWN_JOB');
    }catch{d.fail(job,job.kind==='scan'?'SCAN_FAILED':'MAIL_FAILED');}finally{clearInterval(heartbeat);}

@@ -88,3 +88,14 @@ test('scheduled reconciliation survives a database reopen and is claimed once',a
   db.durable.finish(claimed,{repeatMs:30000});assert.equal(db.durable.claimJob(),null);
  }finally{db.close();for(const suffix of ['','-wal','-shm'])if(existsSync(file+suffix))unlinkSync(file+suffix);rmdirSync(dir);}
 });
+
+test('two store handles serialize writes to the same workspace',async()=>{
+ const {mkdtempSync,unlinkSync,rmdirSync,existsSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const dir=mkdtempSync(join(tmpdir(),'paytrace-lock-')),file=join(dir,'case.sqlite');const first=openStore(file),second=openStore(file);
+ try{const {id}=first.create(),order=[];let release;const gate=new Promise(resolve=>release=resolve);
+  const a=first.lock(id,async()=>{order.push('first-start');await gate;order.push('first-end');});
+  await new Promise(resolve=>setTimeout(resolve,10));const b=second.lock(id,async()=>{order.push('second');});
+  await new Promise(resolve=>setTimeout(resolve,20));assert.deepEqual(order,['first-start']);
+  release();await Promise.all([a,b]);assert.deepEqual(order,['first-start','first-end','second']);
+ }finally{first.close();second.close();for(const suffix of ['','-wal','-shm'])if(existsSync(file+suffix))unlinkSync(file+suffix);rmdirSync(dir);}
+});

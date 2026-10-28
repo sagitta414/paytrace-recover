@@ -5,6 +5,9 @@ This branch integrates selected backend safeguards into the current PayTrace app
 ## Integrated now
 
 - SQLite-backed scheduled scan and mail jobs with leases, retries, and restart persistence replace the two in-process timers. The existing `service.scan`, `service.autoTriage`, and customer mail flow remain the job handlers.
+- Workspace mutations now use a SQLite lease as well as the local lock, so two processes sharing the database serialize work on the same merchant workspace.
+- Accepted PayPal webhooks enqueue a durable follow-up reconciliation job before the event is marked processed. The event remains a trigger; the job rereads PayPal and course evidence and cannot authorize a grant by itself.
+- Customer-email delivery retries transient or uncertain outcomes with the same message body, private link, and provider idempotency key. Retries stop after five attempts or before the 24-hour link expires. Private-link requests are capped at three per case and recipient per day, and completed sends no longer retain the link body in the outbox.
 - An external grant intent is saved before the course-service request. If its outcome is uncertain, PayTrace checks the current entitlement on retry and never sends a second grant for that intent. The existing course-service idempotency key remains unchanged.
 - Render workflow jobs have a deadline. Expired callbacks cannot resume the old job or repeat a grant; merchant review or read-only verification is required.
 - A verified PayPal refund, reversal, or denial event puts the matching case on a provisional hold. Fresh PayPal reads update the hold, and PayTrace blocks grant actions and its customer lesson route while the hold remains.
@@ -19,4 +22,4 @@ This branch integrates selected backend safeguards into the current PayTrace app
 
 ## Release gate
 
-Keep this branch out of the hosted app until PayPal sandbox credentials and a Render Workflow are configured and an end-to-end acceptance run proves: exact capture match, model-backed review, merchant approval or explicit standing policy, one course-service grant, protected-lesson verification, restart-safe job processing, signed refund/reversal hold, and clear customer status. Run `npm test` and inspect the connected run report before promoting the branch.
+Keep this branch out of the hosted app until PayPal sandbox credentials and a Render Workflow are configured and an end-to-end acceptance run proves: exact capture match, model-backed review, merchant approval or explicit standing policy, one course-service grant, protected-lesson verification, restart-safe webhook reconciliation, signed refund/reversal hold, and clear customer status. Exercise one interrupted email delivery with a test provider as well. Run `npm test` and inspect the connected run report before promoting the branch.
