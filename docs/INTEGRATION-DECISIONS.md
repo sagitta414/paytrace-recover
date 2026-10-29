@@ -20,11 +20,13 @@ This branch integrates compatible backend safeguards and the Recovery Center int
 
 ## Explicit choices still needed
 
-- **Merchant identity:** retain the current demo operator key for the public demonstration. Integrate Darius's OIDC/MFA account and team model only with a defined tenant migration and role-to-action policy. It should be a separate change so existing sandbox cases and customer links are not silently reassigned.
-- **Course connector:** retain `COURSE_ACCESS_URL` and `COURSE_ACCESS_API_KEY` plus the current `/v1/access/*` reference contract for this integration. Darius's `COURSE_API_URL` connector has a different identity and suspension contract; choose one contract and migrate the reference service and acceptance tests together.
+- **Merchant identity chosen:** verified workspaces use OIDC authorization code + PKCE, signed ID-token validation, fresh MFA, verified email, and explicit membership. New owner workspaces start empty. The public sample remains a separate demo workspace; its cookie and bearer team links are rejected when verified mode is required. Existing demo cases and customer links are **not** silently reassigned. Production startup fails closed without verified identity and the course connector. Configure one or more bootstrap admin emails in the private environment, then invite members by verified email. No local merchant passwords are stored.
+- **Course connector chosen:** retain `COURSE_ACCESS_URL` and `COURSE_ACCESS_API_KEY` with the current `/v1/access/*` purchase-bound contract. It already supports exact entitlement reads, idempotent grants, protected-lesson probes, and exact-purchase suspensions. Darius's `COURSE_API_URL` protocol is not mixed into this contract; an eventual LMS adapter must implement the same four operations and pass the connected acceptance suite before it replaces the reference service.
 - **Production refund suspension:** the reference course service now enforces suspension for its own protected lesson. A production connector must implement the same purchase-bound suspension and direct learner-facing access enforcement before claiming access is revoked on another platform.
 - **Automation approval:** opt-in policy grants remain narrowly bounded to sandbox cases. Reconcile that standing merchant authorization with role-based approvals and audit language before enabling it for multi-merchant use.
 
 ## Release gate
 
 Keep this branch out of the hosted app until PayPal sandbox credentials and a Render Workflow are configured and an end-to-end acceptance run proves: exact capture match, model-backed review, merchant approval or explicit standing policy, one course-service grant, protected-lesson verification, restart-safe webhook reconciliation, signed refund/reversal hold, and clear customer status. Exercise one interrupted email delivery with a test provider as well. Run `npm test` and inspect the connected run report before promoting the branch.
+
+The release-candidate setup and read-only acceptance checker are in [RELEASE-CANDIDATE.md](RELEASE-CANDIDATE.md). They do not substitute for the live provider run.

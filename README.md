@@ -52,7 +52,7 @@ See [integration setup](docs/SETUP.md), [product scope](docs/PRODUCT.md), [demo 
 
 The [development plan](docs/DEVELOPMENT_PLAN.md) sequences the Render and AG Studio build, live integration checks, and the later merchant pilot.
 
-The [safety-first backend integration decisions](docs/INTEGRATION-DECISIONS.md) describe the Darius work brought into a separate branch, the merchant-identity and course-connector choices, and the connected acceptance gate before deployment. The new [Recovery Center](docs/RECOVERY-CENTER.md) adds analytics, verification receipts, alerts, follow-up automation, audit records, and scoped team access to the Node-backed demo.
+The [integration decisions](docs/INTEGRATION-DECISIONS.md) describe the Darius work brought into this branch and the chosen merchant-identity and course-connector boundaries. The [Recovery Center](docs/RECOVERY-CENTER.md) adds analytics, verification receipts, alerts, follow-up automation, audit records, and scoped team access. The [release-candidate runbook](docs/RELEASE-CANDIDATE.md) covers verified sign-in and connected acceptance.
 
 ## Structure
 
@@ -62,9 +62,9 @@ The original PayTrace design remains in `source/` as historical design material.
 
 ## Prototype boundaries
 
-One isolated demo merchant workspace with multiple fictional learners and one course per session. No production payments, refunds, commercial LMS connector, or production merchant authentication. Sandbox webhook intake is implemented but has not been validated with a live PayPal delivery. The storefront deliberately injects an access-update failure after capture; it does not diagnose an actual third-party store outage. The AI interprets supplied records but cannot authorize or execute writes. Citations are checked for valid source IDs, not automatically proven factually correct. Deterministic checks and either exact case approval or a merchant-enabled narrow sandbox policy remain necessary.
+The public demonstration uses isolated fictional merchant workspaces with one reference course. This branch also includes optional verified merchant sign-in and membership using OIDC + MFA; it is not configured or live-accepted on the public deployment. No production payments or commercial LMS connector are included. Sandbox webhook intake is implemented but has not been validated with a live PayPal delivery. The storefront deliberately injects an access-update failure after capture; it does not diagnose an actual third-party store outage. AI interprets supplied records but cannot authorize or execute writes. Citations are checked for valid source IDs, not automatically proven factually correct. Deterministic checks and either exact case approval or a merchant-enabled narrow sandbox policy remain necessary.
 
-SQLite persistence, durable scheduled and webhook reconciliation jobs, and workspace leases support one durable host with processes sharing the same database. A production service still needs tenant authentication, shared authorization and idempotency across multiple hosts, retention controls, verified refund suspension at the course platform, and a real course platform adapter. Approval is specific to the previewed evidence or a narrow merchant-enabled sandbox policy. Verification checks current state, not a permanent guarantee.
+SQLite persistence, durable scheduled and webhook reconciliation jobs, and workspace leases support one durable host with processes sharing the same database. Verified OIDC membership is implemented but needs provider setup and connected acceptance. A production service still needs shared authorization and idempotency across multiple hosts, retention controls, verified refund suspension at the chosen course platform, and a real course-platform adapter. Approval is specific to the previewed evidence or a narrow merchant-enabled sandbox policy. Verification checks current state, not a permanent guarantee.
 
 PayTrace Recover is a working name, not a trademark-clearance claim. This is an independent project, not an official PayPal product.
 

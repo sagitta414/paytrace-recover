@@ -7,6 +7,7 @@ import {seedPortfolio} from '../dist/operations.mjs';
 import {customerSupport} from './customer-support.mjs';
 import {durability} from './durability.mjs';
 import {recoveryCenter} from './recovery-center.mjs';
+import {accountStore} from './account-store.mjs';
 export function openStore(file){
  if(file!==':memory:')mkdirSync(dirname(file),{recursive:true});
  const db=new DatabaseSync(file),locks=new Map();
@@ -23,13 +24,14 @@ export function openStore(file){
  CREATE TABLE IF NOT EXISTS demo_creation_limits (key TEXT NOT NULL, bucket INTEGER NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(key,bucket));
  CREATE TABLE IF NOT EXISTS access_intents (owner TEXT NOT NULL, case_id TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(owner,case_id));`);
  db.exec('CREATE TABLE IF NOT EXISTS case_preferences (owner TEXT NOT NULL,case_id TEXT NOT NULL,priority TEXT NOT NULL,revision INTEGER NOT NULL,updated TEXT NOT NULL,PRIMARY KEY(owner,case_id));');
+ try{db.exec("ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'demo'")}catch(e){if(!/duplicate column name/.test(e.message))throw e;}
  db.exec('PRAGMA busy_timeout=5000');
  const put=s=>JSON.stringify(s),hash=token=>createHash('sha256').update(token).digest('hex');
  function saveCase(owner,state){durable.guard(owner);db.prepare('INSERT INTO cases VALUES (?,?,?) ON CONFLICT(owner,id) DO UPDATE SET value=excluded.value').run(owner,state.id,put(state));support.sync(owner,state);}
- function get(id){const row=db.prepare('SELECT * FROM sessions WHERE id=?').get(id);return row?{id,state:JSON.parse(row.value),operator:!!row.operator}:null;}
+ function get(id){const row=db.prepare('SELECT * FROM sessions WHERE id=?').get(id);return row?{id,state:JSON.parse(row.value),operator:!!row.operator,mode:row.mode}:null;}
  function save(owner,state){durable.guard(owner);db.prepare('UPDATE sessions SET value=?,updated=? WHERE id=?').run(put(state),Date.now(),owner);saveCase(owner,state);}
  function grantRecord(owner,s){db.prepare('INSERT INTO course_access VALUES (?,?,?,?,?) ON CONFLICT(owner,case_id) DO NOTHING').run(owner,s.id,s.order.userId,s.order.courseId,s.capture.id);}
- function init(owner){const row=get(owner);if(!row)throw Error('Unknown workspace.');if(db.prepare('SELECT count(*) AS n FROM cases WHERE owner=?').get(owner).n)return;for(const s of seedPortfolio(row.state)){saveCase(owner,s);if(canOpenLesson(s))grantRecord(owner,s);}}
+ function init(owner){const row=get(owner);if(!row)throw Error('Unknown workspace.');if(row.mode==='verified'||db.prepare('SELECT count(*) AS n FROM cases WHERE owner=?').get(owner).n)return;for(const s of seedPortfolio(row.state)){saveCase(owner,s);if(canOpenLesson(s))grantRecord(owner,s);}}
  function listCases(owner){init(owner);return db.prepare('SELECT value FROM cases WHERE owner=? ORDER BY id').all(owner).map(r=>JSON.parse(r.value));}
  function caseById(owner,id){init(owner);const r=db.prepare('SELECT value FROM cases WHERE owner=? AND id=?').get(owner,id);if(!r)throw Error('Case does not belong to this workspace.');return JSON.parse(r.value);}
  function savePortfolioCase(owner,s){saveCase(owner,s);if(get(owner)?.state.id===s.id)save(owner,s);}
@@ -40,7 +42,8 @@ export function openStore(file){
  const support=customerSupport(db,{caseById,content});
  const durable=durability(db);
  const center=recoveryCenter(db,{getCase:caseById,listCases,support,grace:owner=>db.prepare('SELECT grace FROM monitor_settings WHERE owner=?').get(owner)?.grace||5});
- function create(){const id=randomUUID(),state=simulatePayment(createCase('match','CL-'+randomUUID().slice(0,12)));db.prepare('INSERT INTO sessions VALUES (?,?,0,?)').run(id,put(state),Date.now());init(id);return {id,state,operator:false};}
+ function create(){const id=randomUUID(),state=simulatePayment(createCase('match','CL-'+randomUUID().slice(0,12)));db.prepare("INSERT INTO sessions(id,value,operator,updated,mode) VALUES (?,?,0,?,'demo')").run(id,put(state),Date.now());init(id);return {id,state,operator:false};}
+ function createWorkspace(){const id=randomUUID(),state=createCase('match','CL-'+randomUUID().slice(0,12));db.prepare("INSERT INTO sessions(id,value,operator,updated,mode) VALUES (?,?,1,?,'verified')").run(id,put(state),Date.now());return id;}
  function createPublicDemo(address){const bucket=Math.floor(Date.now()/3600000),key=hash(String(address||'unknown'));db.exec('BEGIN IMMEDIATE');try{
   db.prepare('DELETE FROM demo_creation_limits WHERE bucket<?').run(bucket-24);
   const total=db.prepare('SELECT count(*) AS n FROM demo_workspaces').get().n;
@@ -52,7 +55,8 @@ export function openStore(file){
  }catch(e){db.exec('ROLLBACK');throw e;}}
  function casePriority(owner,caseId){caseById(owner,caseId);const row=db.prepare('SELECT priority,revision,updated AS updatedAt FROM case_preferences WHERE owner=? AND case_id=?').get(owner,caseId);return {caseId,...(row||{priority:'normal',revision:0,updatedAt:null})};}
  function setCasePriority(owner,caseId,priority,expectedRevision){caseById(owner,caseId);if(!['low','normal','high'].includes(priority)||!Number.isInteger(expectedRevision)||expectedRevision<0)throw Error('Choose a valid priority and current revision.');const old=casePriority(owner,caseId);if(old.revision!==expectedRevision){const error=Error('Priority changed in another tab. Reload before saving.');error.status=409;throw error;}const updatedAt=new Date().toISOString();const write=db.prepare('INSERT INTO case_preferences VALUES (?,?,?,?,?) ON CONFLICT(owner,case_id) DO UPDATE SET priority=excluded.priority,revision=excluded.revision,updated=excluded.updated WHERE case_preferences.revision=?').run(owner,caseId,priority,expectedRevision+1,updatedAt,expectedRevision);if(!write.changes){const error=Error('Priority changed in another tab. Reload before saving.');error.status=409;throw error;}return casePriority(owner,caseId);}
- return {support,durable,center,
+ const accounts=accountStore(db,{createWorkspace});
+ return {support,durable,center,accounts,createWorkspace,
   backupTo:destination=>backup(db,destination),
   databaseCheck:()=>db.prepare('PRAGMA quick_check').get().quick_check==='ok',
   create,createPublicDemo,get,save,saveCase:savePortfolioCase,listCases,caseById,
