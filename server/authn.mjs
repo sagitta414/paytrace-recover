@@ -9,7 +9,7 @@ export function validateClaims(p,{issuer,clientId,nonce,requireMfa=true,mfaAcr='
 }
 export function identityProvider(env,accounts,{fetcher=fetch,verifyToken,now=Date.now}={}){
  const configured=!!(env.OIDC_ISSUER&&env.OIDC_CLIENT_ID),required=env.AUTH_REQUIRED==='true'||env.NODE_ENV==='production'||configured,requireMfa=env.OIDC_REQUIRE_MFA!=='false';
- if(required&&!configured)throw Error('Verified sign-in is required. Configure OIDC_ISSUER and OIDC_CLIENT_ID.');if(env.NODE_ENV==='production'&&!requireMfa)throw Error('Production sign-in requires MFA.');
+ if(required&&!configured)throw Error('Verified sign-in is required. Configure OIDC_ISSUER and OIDC_CLIENT_ID.');if(required&&!requireMfa)throw Error('Verified merchant sign-in requires MFA.');
  const issuer=env.OIDC_ISSUER?.trim(),clientId=env.OIDC_CLIENT_ID,publicUrl=new URL(env.PUBLIC_URL||env.RENDER_EXTERNAL_URL||'http://127.0.0.1:'+(env.PORT||4358));
  if(configured&&(new URL(issuer).protocol!=='https:'||new URL(issuer).username||new URL(issuer).password))throw Error('OIDC issuer must use HTTPS without embedded credentials.');if(required&&publicUrl.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(publicUrl.hostname))throw Error('Verified sign-in requires an HTTPS public URL.');
  if(env.OIDC_ACCOUNT_URL){const accountUrl=new URL(env.OIDC_ACCOUNT_URL);if(accountUrl.protocol!=='https:'||accountUrl.username||accountUrl.password)throw Error('Account-management URL must use HTTPS without embedded credentials.');}
