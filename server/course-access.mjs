@@ -14,6 +14,7 @@ export function courseAccessClient(env, fetcher = fetch) {
     const url = new URL(base.href.replace(/\/?$/, '/') + path);
     const response = await fetcher(url, {
       method: 'POST',
+      redirect: 'error',
       headers: {
         Authorization: `Bearer ${env.COURSE_ACCESS_API_KEY}`,
         'Content-Type': 'application/json',
@@ -36,13 +37,23 @@ export function courseAccessClient(env, fetcher = fetch) {
   };
   return {
     check,
-    async grant(s) {
+    async grant(s, operationKey = `paytrace:${s.id}:${s.capture?.id}`) {
       if (s.capture?.source !== 'paypal-sandbox' || s.capture.status !== 'COMPLETED') throw Error('A completed PayPal sandbox capture is required.');
-      const value = await request('v1/access/grants', identity(s), `paytrace:${s.id}:${s.capture.id}`);
+      const value = await request('v1/access/grants', identity(s), operationKey);
       if (value?.userId !== s.order.userId || value?.courseId !== s.order.courseId || value?.captureId !== s.capture.id || value?.active !== true) {
         throw Error('Course access service did not confirm the approved grant.');
       }
       return check(s);
+    },
+    async suspend(s, operationKey = `suspend:${s.id}:${s.capture?.id}`) {
+      if (s.capture?.source !== 'paypal-sandbox' || !['REFUNDED','REVERSED','DENIED','DECLINED','FAILED'].includes(s.capture.status)) throw Error('A confirmed adverse PayPal sandbox capture is required.');
+      const value = await request('v1/access/suspensions', identity(s), operationKey);
+      if (value?.userId !== s.order.userId || value?.courseId !== s.order.courseId || value?.captureId !== s.capture.id || value?.active !== false) {
+        throw Error('Course access service did not confirm the exact suspension.');
+      }
+      const current = await check(s);
+      if (current.active) throw Error('Course access remains active after suspension.');
+      return current;
     },
     async probe(s) {
       const value = await request('v1/access/lesson-probe', identity(s));

@@ -56,8 +56,46 @@ test('HTTP rejects non-object JSON, oversized bytes, wrong media types, and stal
  }finally{await new Promise(r=>app.server.close(r));db.close();}
 });
 
+test('expired workflow rejects late callbacks without applying a grant',async()=>{
+ const db=openStore(':memory:');try{const {id}=db.create();db.authorize(id);const svc=createService(db,{...workflowEnv,WORKFLOW_TIMEOUT_SECONDS:'60'},{fetcher:async()=>Response.json({id:'run'})});
+ const queued=await svc.action(id,{action:'investigate'}),job=queued.state.job.id;
+ const stale=db.get(id).state;stale.job.deadlineAt=new Date(0).toISOString();db.save(id,stale);
+ await assert.rejects(svc.stage(id,'gather',job),/expired/);
+ const current=db.get(id).state;assert.equal(current.job.pending,false);assert.equal(current.writes,0);assert.equal(current.review,null);
+ }finally{db.close();}
+});
+
+test('anonymous demo creation has a persistent per-address cap',async()=>{
+ const db=openStore(':memory:');try{
+  for(let i=0;i<20;i++)db.createPublicDemo('203.0.113.10');
+  assert.throws(()=>db.createPublicDemo('203.0.113.10'),e=>e.status===429);
+  assert.ok(db.createPublicDemo('203.0.113.11').id);
+  assert.equal(db.owners().length,21);
+ }finally{db.close();}
+});
+
 test('completed workflow stages remain replay-safe after database reopen',async()=>{
  const {mkdtempSync,rmdirSync,existsSync,unlinkSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {join}=await import('node:path');const dir=mkdtempSync(join(tmpdir(),'paytrace-job-')),file=join(dir,'test.sqlite');let db=openStore(file);
  try{const {id}=db.create();db.authorize(id);let svc=createService(db,workflowEnv,{fetcher:async()=>Response.json({id:'run'})});const queued=await svc.action(id,{action:'investigate'}),job=queued.state.job.id;const gathered=await svc.stage(id,'gather',job);db.close();db=openStore(file);svc=createService(db,workflowEnv);assert.deepEqual(await svc.stage(id,'gather',job),gathered);await svc.stage(id,'analyze',job);await svc.stage(id,'record',job);assert.equal(db.get(id).state.phase,'investigated');
  }finally{db.close();for(const suffix of ['','-wal','-shm'])if(existsSync(file+suffix))unlinkSync(file+suffix);rmdirSync(dir);}
+});
+
+test('scheduled reconciliation survives a database reopen and is claimed once',async()=>{
+ const {mkdtempSync,unlinkSync,rmdirSync,existsSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const dir=mkdtempSync(join(tmpdir(),'paytrace-durable-')),file=join(dir,'jobs.sqlite');let db=openStore(file);
+ try{const {id}=db.create();db.durable.queue({id:'scan:'+id,owner:id,kind:'scan'});db.close();db=openStore(file);
+  const claimed=db.durable.claimJob();assert.equal(claimed.id,'scan:'+id);assert.equal(db.durable.claimJob(),null);
+  db.durable.finish(claimed,{repeatMs:30000});assert.equal(db.durable.claimJob(),null);
+ }finally{db.close();for(const suffix of ['','-wal','-shm'])if(existsSync(file+suffix))unlinkSync(file+suffix);rmdirSync(dir);}
+});
+
+test('two store handles serialize writes to the same workspace',async()=>{
+ const {mkdtempSync,unlinkSync,rmdirSync,existsSync}=await import('node:fs');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const dir=mkdtempSync(join(tmpdir(),'paytrace-lock-')),file=join(dir,'case.sqlite');const first=openStore(file),second=openStore(file);
+ try{const {id}=first.create(),order=[];let release;const gate=new Promise(resolve=>release=resolve);
+  const a=first.lock(id,async()=>{order.push('first-start');await gate;order.push('first-end');});
+  await new Promise(resolve=>setTimeout(resolve,10));const b=second.lock(id,async()=>{order.push('second');});
+  await new Promise(resolve=>setTimeout(resolve,20));assert.deepEqual(order,['first-start']);
+  release();await Promise.all([a,b]);assert.deepEqual(order,['first-start','first-end','second']);
+ }finally{first.close();second.close();for(const suffix of ['','-wal','-shm'])if(existsSync(file+suffix))unlinkSync(file+suffix);rmdirSync(dir);}
 });

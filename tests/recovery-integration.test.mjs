@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {openStore} from '../server/store.mjs';
+import {createApp} from '../server/index.mjs';
+
+test('Recovery Center routes stay separate from webhooks and team links obey roles and revocation',async t=>{
+ const store=openStore(':memory:');
+ const {server}=createApp({PUBLIC_URL:'http://localhost',DEMO_OPERATOR_KEY:'operator-test'},store);
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ t.after(()=>new Promise(resolve=>server.close(()=>{store.close();resolve();})));
+ const base='http://127.0.0.1:'+server.address().port;
+ const request=(route,{cookie='',body}={})=>fetch(base+'/api/'+route,{method:body===undefined?'GET':'POST',headers:{cookie,origin:'http://localhost',...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+ const first=await request('state');const owner=first.headers.get('set-cookie').split(';')[0];
+ assert.equal((await request('analytics',{cookie:owner})).status,200);
+ assert.equal((await request('automation',{cookie:owner,body:{enabled:true}})).status,403);
+ assert.equal((await request('operator',{cookie:owner,body:{key:'operator-test'}})).status,200);
+ assert.equal((await request('automation',{cookie:owner,body:{enabled:false,emailEnabled:false,delayHours:24,cooldownHours:24,maxPerCase:3,escalateHours:72}})).status,200);
+ const inviteResponse=await request('team/invite',{cookie:owner,body:{label:'Analyst',role:'analyst'}});
+ assert.equal(inviteResponse.status,200);const invitation=await inviteResponse.json();
+ assert.ok(invitation.url.includes('recovery.html#team='));
+ const join=await request('team/session',{body:{token:invitation.token}});
+ assert.equal(join.status,200);const analyst=join.headers.get('set-cookie').split(';')[0];
+ assert.equal((await request('analytics',{cookie:analyst})).status,200);
+ assert.equal((await request('automation',{cookie:analyst,body:{enabled:true}})).status,403);
+ assert.equal((await request('support',{cookie:analyst})).status,403);
+ assert.equal((await request('team/invite',{cookie:analyst,body:{label:'Other',role:'manager'}})).status,403);
+ assert.equal((await request('team/revoke',{cookie:owner,body:{id:invitation.id}})).status,200);
+ assert.equal((await request('analytics',{cookie:analyst})).status,401);
+ assert.equal((await request('paypal/webhook',{cookie:owner})).status,405);
+});

@@ -27,3 +27,5 @@ In Render, create a Blueprint from the public repo and choose **`render-workflow
 Use one sandbox case from checkout through the customer's protected lesson. The merchant must approve the previewed grant. Show the agent evidence panel, the visual recovery receipt, and the downloadable run report. The six connected checks are PayPal payment, separate access, model review, merchant approval, Render recovery, and protected lesson verification. Customer confirmation is a separate final step. If any check is demo or incomplete, describe the run honestly as a partial integration.
 
 The [three-minute demo script](DEMO_SCRIPT.md) and [Azure setup](AZURE-DEPLOYMENT.md) contain the presentation and operational details. Never include API keys or the operator unlock key in a public video.
+
+For the isolated verified-merchant release branch, follow [RELEASE-CANDIDATE.md](RELEASE-CANDIDATE.md). Its read-only `npm run acceptance:check` command validates a freshly selected case against the saved six-signal report; it does not perform a payment or access mutation.
