@@ -108,6 +108,16 @@ export function createApp(env=process.env,store=openStore(env.DATABASE_PATH||'./
    if(member||auth.required){teamRole=auth.required?account.role:member.role;requirePermission(teamRole,permissionFor(route,req.method,body));session={...session,operator:session.operator&&['admin','manager'].includes(teamRole)};}
    if(route==='/api/state'&&req.method==='GET')return json(200,{state:session.state,operator:session.operator,...(url.searchParams.get('bootstrap')==='1'?{cases:store.listCases(session.id)}:{})});
    if(route==='/api/identity'&&req.method==='GET')return json(200,{actor:account?.email||member?.label||'Demo workspace owner',role:account?.role||member?.role||'admin',operator:session.operator,productionAuthentication:auth.required});
+   if(route==='/api/course/demo-check'&&req.method==='POST'){
+    if(auth.required)return json(403,{error:'Sandbox course lookup is unavailable in verified merchant mode.'});
+    if(!store.durable.allow('course-check:'+session.id,12))return json(429,{error:'Too many course checks. Please try again shortly.'});
+    return json(200,storefront.courseCheck(session.id,body));
+   }
+   if(route==='/api/course/demo-help'&&req.method==='POST'){
+    if(auth.required)return json(403,{error:'Sandbox course help is unavailable in verified merchant mode.'});
+    if(!store.durable.allow('course-help:'+session.id,5))return json(429,{error:'Too many support requests. Please try again shortly.'});
+    return json(200,storefront.courseHelp(session.id,body));
+   }
    if(route==='/api/intake/key'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Merchant operator access required.'});return json(200,store.intakeKeyStatus(session.id));}
    if(route==='/api/connector/mapping'&&req.method==='GET'){if(!session.operator)return json(403,{error:'Merchant operator access required.'});return json(200,store.connectorMapping(session.id));}
    if(route.startsWith('/api/demo-store/')){if(auth.required)return json(403,{error:'The demo storefront is unavailable in verified merchant mode.'});if(!session.operator)return json(403,{error:'Unlock merchant controls to use the sandbox storefront.'});if(!env.PAYPAL_CLIENT_ID||!env.PAYPAL_CLIENT_SECRET)return json(503,{error:'PayPal sandbox is not configured.'});

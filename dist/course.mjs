@@ -4,6 +4,7 @@ const root=document.querySelector('#course-app');
 let current;
 const supportHref='customer.html?from=course';
 const returnToLesson=new URLSearchParams(location.search).get('lesson')==='light-01';
+const purchaseContext=(()=>{try{const value=JSON.parse(sessionStorage.getItem('paytrace-course-purchase')||'null');return value&&typeof value.requestId==='string'&&typeof value.orderId==='string'&&typeof value.email==='string'?value:null;}catch{return null;}})();
 
 function shell(s){
   const ready=s.verified&&!s.paymentHold;
@@ -54,8 +55,9 @@ async function openLesson(){
 }
 
 async function init(){
-  try{current=await request('/api/customer/case');shell(current);if(returnToLesson&&current.verified&&!current.paymentHold)await openLesson();}
-  catch{
+  const fromCheckout=new URLSearchParams(location.search).get('from')==='checkout';
+  if(!fromCheckout){try{current=await request('/api/customer/case');shell(current);if(returnToLesson&&current.verified&&!current.paymentHold)await openLesson();return;}catch{}}
+  {
     root.removeAttribute('role');root.removeAttribute('aria-live');
     document.querySelector('.site-head nav a[href="#lesson"]')?.setAttribute('href','#lesson-outline');
     const signInLink=document.querySelector('.site-head nav a[href="customer.html?from=course"]');
@@ -63,22 +65,32 @@ async function init(){
     root.innerHTML=`
       <div class="public-course" id="lesson">
         <section class="frame public-hero" aria-labelledby="studio-heading">
-          <div class="public-intro"><p class="course-type">A photography workshop to take at home</p><h1 id="studio-heading">The Light &amp; Story Workshop</h1><p class="public-lede">Begin with something already in your home. Watch how window light falls across it, change your position, and make a few frames.</p><div class="hero-actions"><a class="action" href="#lesson-outline">Explore the lesson <span aria-hidden="true">↓</span></a><a class="quiet-link" href="#learner-sign-in">Already enrolled? Sign in <span aria-hidden="true">↗</span></a></div><p class="access-hint">Take a look around before you begin. Your private purchase page will show when the full lesson is ready.</p></div>
+          <div class="public-intro"><p class="course-type">A photography workshop to take at home</p><h1 id="studio-heading">The Light &amp; Story Workshop</h1><p class="public-lede">Begin with something already in your home. Watch how window light falls across it, change your position, and make a few frames.</p><div class="hero-actions"><a class="action" href="store-demo.html?scenario=missing-access&from=course">Buy the workshop · $128 <span aria-hidden="true">→</span></a><a class="quiet-link" href="#lesson-outline">Explore the lesson <span aria-hidden="true">↓</span></a></div><p class="access-hint">Demo purchase through PayPal sandbox · no live charge. Already enrolled? <a href="#learner-sign-in">Sign in to your course</a>.</p></div>
           <figure class="public-photo"><img src="assets/course/photographer-room.jpg" width="1500" height="2100" alt="A photographer holding a camera in a light-filled room"><figcaption>Photography at home, with the light that’s there.</figcaption></figure>
         </section>
         <div class="frame course-facts" aria-label="Workshop details"><span>One focused lesson</span><span>At your own pace</span><span>Any camera will do</span></div>
-        <section class="frame course-detail" id="lesson-outline" aria-labelledby="detail-heading"><div class="detail-intro"><p class="course-type">A glimpse of lesson one</p><h2 id="detail-heading">See what a window can do.</h2><p>Choose an object you pass every day and place it near a window. Before you take a picture, spend a moment looking at how the light falls across it.</p><ol class="practice-list"><li>Notice where the brightest light lands.</li><li>Move around the object and try a new angle.</li><li>Take two frames and compare the shadows.</li></ol><a class="quiet-link outline-sign-in" href="#learner-sign-in">Get your private link <span aria-hidden="true">→</span></a></div><div class="detail-lesson"><img src="assets/course/shadow-still-life.webp" width="1600" height="1067" loading="lazy" alt="The soft silhouette of flowers in warm window light"><div><span class="lesson-index">Lesson 01</span><h3>Find your light</h3><p>Work through a guided exercise in natural light and composition, then choose the frame that says the most with the least.</p><span class="lesson-state">The full exercise opens when access is verified</span></div></div></section>
-        <section class="frame learner-entry" id="learner-sign-in" aria-labelledby="sign-in-heading"><div class="entry-intro"><p class="course-type">Ready to continue?</p><h2 id="sign-in-heading">Your lesson is waiting.</h2><p>Already have a private purchase link? Open it to check your access and continue to the lesson. If you need a new link, use the details on your receipt.</p><div class="entry-help"><strong>Can’t get into the lesson?</strong><p>Tell us what happened. PayTrace will help you check your purchase and follow up with the merchant.</p><a class="support-action" href="${supportHref}">Trouble accessing course <span aria-hidden="true">↗</span></a></div></div><form class="entry-form" id="course-sign-in"><span class="eyebrow">GET A PRIVATE PURCHASE LINK</span><label for="course-reference">Order or case reference</label><input id="course-reference" name="reference" required maxlength="150" autocomplete="off" aria-describedby="sign-in-note"><label for="course-email">Email used at checkout</label><input id="course-email" name="email" type="email" required maxlength="254" autocomplete="email"><button class="action" type="submit">Send my private link <span aria-hidden="true">→</span></button><p id="sign-in-note">The link opens your PayTrace purchase page. From there, you can open the lesson once access is verified. Email delivery must be available; otherwise use “Trouble accessing course.”</p><p id="course-sign-in-status" role="status" aria-live="polite"></p></form></section>
+        <section class="frame course-detail" id="lesson-outline" aria-labelledby="detail-heading"><div class="detail-intro"><p class="course-type">A glimpse of lesson one</p><h2 id="detail-heading">See what a window can do.</h2><p>Choose an object you pass every day and place it near a window. Before you take a picture, spend a moment looking at how the light falls across it.</p><ol class="practice-list"><li>Notice where the brightest light lands.</li><li>Move around the object and try a new angle.</li><li>Take two frames and compare the shadows.</li></ol><a class="quiet-link outline-sign-in" href="#learner-sign-in">Already purchased? Sign in <span aria-hidden="true">→</span></a></div><div class="detail-lesson"><img src="assets/course/shadow-still-life.webp" width="1600" height="1067" loading="lazy" alt="The soft silhouette of flowers in warm window light"><div><span class="lesson-index">Lesson 01</span><h3>Find your light</h3><p>Work through a guided exercise in natural light and composition, then choose the frame that says the most with the least.</p><span class="lesson-state">The full exercise opens when access is verified</span></div></div></section>
+        <section class="frame learner-entry" id="learner-sign-in" aria-labelledby="sign-in-heading"><div class="entry-intro"><p class="course-type">Your workshop</p><h2 id="sign-in-heading">Pick up where you left off.</h2><p>After checkout, enter your order number and purchase email to check whether the full lesson is ready.</p><div class="entry-help"><strong>Need help with access?</strong><p>If the lesson stays locked after payment, PayTrace keeps the purchase and support conversation together.</p><a class="support-action" href="${supportHref}">Trouble accessing course <span aria-hidden="true">↗</span></a></div></div><form class="entry-form" id="course-sign-in"><span class="eyebrow">COURSE ACCESS CHECK</span><label for="course-reference">Order number</label><input id="course-reference" name="reference" required maxlength="150" autocomplete="off" aria-describedby="sign-in-note"><label for="course-email">Email used at checkout</label><input id="course-email" name="email" type="email" required maxlength="254" autocomplete="email"><button class="action" type="submit">Sign in to my course <span aria-hidden="true">→</span></button><p id="sign-in-note">For this sandbox checkout, the browser also holds your purchase session. Order number and email alone do not open a private case.</p><div id="course-sign-in-status" role="status" aria-live="polite"></div><div id="course-access-result" hidden></div></form></section>
       </div>`;
     root.querySelector('#course-sign-in')?.addEventListener('submit',requestCourseLink);
+    if(purchaseContext){root.querySelector('#course-reference').value=purchaseContext.orderId;root.querySelector('#course-email').value=purchaseContext.email;}
+    if(fromCheckout)requestAnimationFrame(()=>root.querySelector('#learner-sign-in')?.scrollIntoView());
   }
 }
 async function requestCourseLink(event){
   event.preventDefault();
   const form=event.currentTarget,button=form.querySelector('button'),status=form.querySelector('#course-sign-in-status');
-  button.disabled=true;button.textContent='Requesting your link…';status.textContent='';status.classList.remove('is-error');
-  try{const result=await request('/api/customer/request-link',{reference:form.elements.reference.value.trim(),email:form.elements.email.value.trim()});status.textContent=result.message;}
-  catch(error){status.textContent=error.message;status.classList.add('is-error');}
-  finally{button.disabled=false;button.innerHTML='Send my private link <span aria-hidden="true">→</span>';}
+  const resultBox=form.querySelector('#course-access-result');resultBox.hidden=true;resultBox.replaceChildren();
+  button.disabled=true;button.textContent='Checking your purchase…';status.textContent='';status.classList.remove('is-error');
+  try{
+    if(!purchaseContext)throw Error('For this sandbox test, complete checkout in this browser first.');
+    const details={requestId:purchaseContext.requestId,reference:form.elements.reference.value.trim(),email:form.elements.email.value.trim()};
+    const result=await request('/api/course/demo-check',details);
+    resultBox.hidden=false;resultBox.className='course-access-result '+(result.state==='locked'?'access-locked':'access-ready');
+    resultBox.innerHTML=`<span class="eyebrow">${result.state==='locked'?'ACCESS NOT AVAILABLE':'ACCESS READY'}</span><h3 tabindex="-1">${result.state==='locked'?'We found your order. The lesson is still locked.':'Your lesson is ready.'}</h3><p>${esc(result.message)}</p><button class="support-action" id="course-help" type="button">${result.state==='locked'?'Trouble accessing course':'Open my private purchase'} <span aria-hidden="true">→</span></button><p id="course-help-status" role="status"></p>`;
+    const helpButton=resultBox.querySelector('#course-help');helpButton.addEventListener('click',async()=>{helpButton.disabled=true;helpButton.textContent='Opening PayTrace support…';try{const help=await request('/api/course/demo-help',{...details,helpId:crypto.randomUUID()});location.href='customer.html?from=course#'+encodeURIComponent(help.token);}catch(error){resultBox.querySelector('#course-help-status').textContent=error.message;helpButton.disabled=false;helpButton.textContent='Try opening PayTrace support';}});
+    resultBox.querySelector('h3').focus();
+  }catch(error){status.textContent=error.message;status.classList.add('is-error');if(!purchaseContext){resultBox.hidden=false;resultBox.className='course-access-result';resultBox.innerHTML='<a class="support-action" href="store-demo.html?scenario=missing-access&from=course">Start sandbox checkout <span aria-hidden="true">→</span></a>';}}
+  finally{button.disabled=false;button.innerHTML='Sign in to my course <span aria-hidden="true">→</span>';}
 }
 await init();

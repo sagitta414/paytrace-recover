@@ -79,6 +79,12 @@ a{color:inherit}
 .entry-form p{font-size:.88rem;line-height:1.5;color:var(--muted);margin:15px 0 0}
 .entry-form #course-sign-in-status:not(:empty){border-left:3px solid var(--accent);background:#f1f6ef;color:#244c39;padding:12px 14px;margin-top:18px}
 .entry-form #course-sign-in-status.is-error{border-color:#9f4332;background:#fff2ed;color:#823624}
+.course-access-result{margin-top:22px;padding:23px 22px;background:#fff;border-left:4px solid #b7663f;box-shadow:0 8px 20px #1d312214}
+.course-access-result.access-ready{border-left-color:#255b46}
+.course-access-result h3{font:400 clamp(1.45rem,2.3vw,1.85rem)/1.17 Georgia,serif;letter-spacing:-.025em;margin:8px 0 9px}
+.course-access-result p{margin:0 0 17px;color:#47564b;font-size:.94rem;line-height:1.55}
+.course-access-result .support-action{width:100%;text-align:center}
+.course-access-result #course-help-status:not(:empty){margin:14px 0 0;color:#823624}
 .classroom{padding-top:50px;padding-bottom:78px}
 .classroom-top{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:32px}
 .classroom-top h1{font:400 clamp(2.7rem,4.5vw,4.2rem)/1.05 Georgia,serif;letter-spacing:-.045em;margin:9px 0 9px}

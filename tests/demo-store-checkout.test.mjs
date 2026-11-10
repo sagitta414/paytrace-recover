@@ -27,6 +27,17 @@ test('demo storefront captures a sandbox order, sends one trusted mapping, and c
   assert.equal(db.listCases(owner).some(s=>s.id===firstStart.caseId),false);
   const finished=await(await post('/api/demo-store/complete',{requestId:body.requestId,orderId:firstStart.orderId})).json();assert.equal(finished.status,'case-created');assert.equal(finished.intake,'created');
   const s=db.caseById(owner,firstStart.caseId);assert.equal(s.capture.source,'paypal-sandbox');assert.equal(s.writes,0);assert.equal(s.order.userId,'learner-'+firstStart.caseId.slice('CL-STORE-'.length));assert.equal(db.support.view(owner,s.id,true).email,body.email);
+  const lookup={requestId:body.requestId,reference:firstStart.orderId,email:body.email};
+  assert.equal((await post('/api/course/demo-check',{...lookup,reference:'WRONG'})).status,403);
+  assert.equal((await post('/api/course/demo-check',{...lookup,email:'other@example.test'})).status,403);
+  const noOrigin=await fetch(base+'/api/course/demo-check',{method:'POST',headers:{Cookie:cookie,Origin:'https://another.example','Content-Type':'application/json'},body:JSON.stringify(lookup)});assert.equal(noOrigin.status,403);
+  const outsider=await fetch(base+'/api/state'),otherCookie=outsider.headers.get('set-cookie').split(';')[0];
+  assert.equal((await fetch(base+'/api/course/demo-check',{method:'POST',headers:{Cookie:otherCookie,Origin:'http://localhost','Content-Type':'application/json'},body:JSON.stringify(lookup)})).status,403);
+  const check=await(await post('/api/course/demo-check',lookup)).json();assert.equal(check.state,'locked');assert.doesNotMatch(JSON.stringify(check),/caseId|token|buyer@example/);
+  const helpId='55555555-5555-4555-8555-555555555555';const help=await(await post('/api/course/demo-help',{...lookup,helpId})).json();assert.ok(help.token);
+  const exchange=await post('/api/customer/session',{token:help.token});assert.equal(exchange.status,200);const customerCookie=exchange.headers.get('set-cookie').split(';')[0];
+  const privateCase=await(await fetch(base+'/api/customer/case',{headers:{Cookie:customerCookie}})).json();assert.equal(privateCase.caseId,s.id);assert.equal(privateCase.help,true);assert.equal(privateCase.messages.filter(m=>m.id===helpId).length,1);
+  assert.equal(db.caseById(owner,s.id).writes,0);
   const again=await(await post('/api/demo-store/complete',{requestId:body.requestId,orderId:firstStart.orderId})).json();assert.equal(again.intake,'duplicate');assert.equal(captures,1);assert.equal(reads,1);
  }finally{await new Promise(resolve=>server.close(resolve));db.close();}
 });

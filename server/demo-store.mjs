@@ -31,5 +31,13 @@ export function demoStore(store,paypal,service){
   return {...publicDraft(updated),intake:intake.status};
  }
  function status(owner,requestId){const row=draft(owner,requestId);return row?publicDraft(row):{requestId,status:'not-found'};}
- return {start,complete,status};
+ function coursePurchase(owner,body){
+  const row=draft(owner,body?.requestId);
+  const reference=String(body?.reference||'').trim(),email=String(body?.email||'').trim().toLowerCase();
+  if(!row||row.status!=='case-created'||!row.orderId||reference!==row.orderId||email!==row.email){const error=Error('We could not match this sandbox purchase in this browser. Check the order number and checkout email.');error.status=403;throw error;}
+  return row;
+ }
+ function courseCheck(owner,body){const row=coursePurchase(owner,body),caseView=store.support.view(owner,row.caseId);return {state:caseView.verified&&!caseView.paymentHold?'ready':'locked',message:caseView.verified&&!caseView.paymentHold?'Your purchase is verified. Open your private case to continue to the lesson.':'We found your paid order, but the full lesson is not available to this account yet. You do not need to buy it again.'};}
+ function courseHelp(owner,body){const row=coursePurchase(owner,body);if(typeof body?.helpId!=='string'||!/^[a-f0-9-]{36}$/i.test(body.helpId))throw Error('A stable support request ID is required.');const view=store.support.view(owner,row.caseId);if(!view.verified||view.paymentHold)store.support.mutate(owner,row.caseId,{action:'help',requestId:body.helpId,text:'I paid for The Light & Story Workshop, but my order and email do not open the lesson.'});return {token:store.support.mint(owner,row.caseId,'link',10*60000)};}
+ return {start,complete,status,courseCheck,courseHelp};
 }
