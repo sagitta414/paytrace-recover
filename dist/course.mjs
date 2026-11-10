@@ -14,7 +14,7 @@ function shell(s){
         <aside class="course-rail" aria-label="Workshop navigation">
           <div class="rail-title"><span class="eyebrow">YOUR COURSE</span><strong>The Light & Story Workshop</strong></div>
           <div class="rail-unit"><span class="unit-number">01</span><span><strong>Find your light</strong><small>${ready?'Available now':'Awaiting access'}</small></span><span aria-hidden="true">→</span></div>
-          <div class="rail-note"><span class="eyebrow">YOUR ACCESS</span><strong>${s.paymentHold?'Purchase under review':ready?'Lesson ready':'Access being checked'}</strong><p>${ready?'Your purchase and course access have been verified. We’ll check again when you open the lesson.':s.paymentHold?'Your purchase needs review before the lesson can open.':'Your purchase may be complete. We’re waiting for access to be verified; you do not need to buy it again.'}</p><a href="customer.html">See case progress <span aria-hidden="true">↗</span></a></div>
+          <div class="rail-note"><span class="eyebrow">YOUR ACCESS</span><strong>${s.paymentHold?'Purchase under review':ready?'Lesson ready':'Access being checked'}</strong><p>${ready?'Your purchase and course access have been verified. We’ll check again when you open the lesson.':s.paymentHold?'Your purchase needs review before the lesson can open.':'Your purchase may be complete. We’re waiting for access to be verified; you do not need to buy it again.'}</p><a class="support-action" href="customer.html">Unable to access course</a></div>
           <p class="rail-meta">${esc(mode)} · Case ${esc(s.caseId)}</p>
         </aside>
         <div class="lesson-stage">
@@ -23,7 +23,7 @@ function shell(s){
             <div class="lesson-action"><div><strong>${ready?'Your lesson is ready':'Full lesson not available yet'}</strong><span>${ready?'Open the lesson to see the complete exercise.':'The complete exercise opens after your course access is verified.'}</span></div>${ready?'<button class="action" id="open-lesson" type="button">Open lesson <span aria-hidden="true">→</span></button>':'<a class="action" href="customer.html">Check purchase status <span aria-hidden="true">→</span></a>'}</div>
             <div id="lesson-result" aria-live="polite"></div>
           </div>
-          <div class="lesson-bottom"><div><span class="eyebrow">ABOUT THIS WORKSHOP</span><p>One lesson on natural light, observation, and composition. Work through it whenever your access is active.</p></div><a class="quiet-link" href="customer.html">Questions about access? <span aria-hidden="true">↗</span></a></div>
+          <div class="lesson-bottom"><div><span class="eyebrow">ABOUT THIS WORKSHOP</span><p>One lesson on natural light, observation, and composition. Work through it whenever your access is active.</p></div><a class="quiet-link" href="customer.html">Purchase & support <span aria-hidden="true">↗</span></a></div>
         </div>
       </div>
     </div>`;
@@ -55,13 +55,16 @@ async function init(){
   try{current=await request('/api/customer/case');shell(current);}
   catch{
     root.removeAttribute('role');root.removeAttribute('aria-live');
+    document.querySelector('.site-head nav a[href="#lesson"]')?.setAttribute('href','#lesson-outline');
     root.innerHTML=`
       <div class="public-course" id="lesson">
         <section class="frame public-hero" aria-labelledby="studio-heading">
-          <div class="public-intro"><p class="course-type">An online photography workshop</p><h1 id="studio-heading">The Light &amp; Story Workshop</h1><p class="public-lede">A hands-on lesson in finding good photographs in ordinary places. Start at home, with the light you already have.</p><a class="action" href="customer.html">View your purchase <span aria-hidden="true">→</span></a><p class="access-hint">Already purchased? Open the private link from your case to access the lesson.</p></div>
+          <div class="public-intro"><p class="course-type">Photography / course overview</p><h1 id="studio-heading">The Light &amp; Story Workshop</h1><p class="public-lede">A practical introduction to photographing everyday subjects in natural light. Work at home, at your own pace, with one focused lesson.</p><div class="hero-actions"><a class="action" href="#lesson-outline">Explore the lesson <span aria-hidden="true">↓</span></a><a class="support-action" href="customer.html">Unable to access course <span aria-hidden="true">↗</span></a></div><p class="access-hint">Your full lesson opens from the private link connected to your purchase.</p></div>
           <figure class="public-photo"><img src="assets/course/photographer-room.jpg" width="1500" height="2100" alt="A photographer using a camera in a bright room"><figcaption>A quiet moment with a camera, at home.</figcaption></figure>
         </section>
-        <section class="frame course-detail" aria-labelledby="detail-heading"><div class="detail-intro"><p class="course-type">Inside the workshop</p><h2 id="detail-heading">One lesson. A practical place to start.</h2><p>Follow a short exercise in natural light and composition. There is no equipment list or studio setup to master first.</p></div><div class="detail-lesson"><img src="assets/course/shadow-still-life.webp" width="1600" height="1067" loading="lazy" alt="A vase and flowers casting a shadow in window light"><div><span class="lesson-index">Lesson 01</span><h3>Find your light</h3><p>Work with a familiar object and see how the direction of light changes the photograph.</p><span class="lesson-state">Available after access is verified</span></div></div></section>
+        <div class="frame course-facts" aria-label="Course details"><div><span>Format</span><strong>Self-paced exercise</strong></div><div><span>Lessons</span><strong>One focused lesson</strong></div><div><span>Where</span><strong>At home, in natural light</strong></div></div>
+        <section class="frame course-detail" id="lesson-outline" aria-labelledby="detail-heading"><div class="detail-intro"><p class="course-type">Course outline</p><h2 id="detail-heading">Learn to see the light you already have.</h2><p>Practice observing a simple scene, choosing a composition, and noticing how light changes the result.</p><ul class="practice-list"><li>Notice the direction and quality of daylight</li><li>Frame a familiar subject with intention</li><li>Compare the photographs you make</li></ul></div><div class="detail-lesson"><img src="assets/course/shadow-still-life.webp" width="1600" height="1067" loading="lazy" alt="A vase and flowers casting a shadow in window light"><div><span class="lesson-index">01 / Your lesson</span><h3>Find your light</h3><p>A guided exercise in natural light and composition. The complete instructions are available after your course access is verified.</p><span class="lesson-state">Full lesson opens with verified access</span></div></div></section>
+        <section class="frame course-help" aria-labelledby="course-help-heading"><div><p class="course-type">Access support</p><h2 id="course-help-heading">Paid for the workshop but the lesson is locked?</h2><p>Check your purchase and follow the recovery case. You can tell the merchant what happens when you try to open the course.</p></div><a class="support-action" href="customer.html">Unable to access course <span aria-hidden="true">↗</span></a></section>
       </div>`;
   }
 }

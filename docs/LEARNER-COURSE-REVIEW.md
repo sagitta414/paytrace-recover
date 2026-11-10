@@ -85,3 +85,15 @@ The public course page was revised after feedback that the dark hero and animate
 | Automated behavior | PASS | `npm test` (354 passing), `node --check dist/course.mjs`, and `git diff --check`. |
 | Private ready/open and locked visual states | NOT TESTED in this revision | Content copy changed but no fixture browser pass was run for private states. Earlier fixture results are recorded above. |
 | Full accessibility and connected buyer visit | NOT TESTED | No axe scan, screen-reader flow, zoom/forced-colors matrix, or live private-session visit in this revision. No WCAG or connected-success claim. |
+
+## Course overview and access-help revision · 2026-11-10
+
+Scope: public `/course.html`, private ready/locked course views, and the navigation to the existing `/customer.html` purchase-support flow. The public overview names only the implemented lesson and does not expose its protected body.
+
+| Check | Result | Evidence / limit |
+| --- | --- | --- |
+| Public hierarchy and imagery | PASS for tested desktop/mobile | Rendered local desktop, 390px, and 320px views. The course purpose, lesson route, access-help action, image, facts, and outline remain readable in order. |
+| Locked and ready states | PASS with local fixtures | Rendered both private case states locally. The access-help action appears beside the case access status; the locked state does not include protected lesson text. The fixture is not connected service proof. |
+| Access-help destination | PASS in source | Both public and private actions link to the existing customer page. That page offers purchase lookup without a session and conversation/help with a private case session. |
+| Automated behavior | PASS | `npm test` (354 passing), `node --check dist/course.mjs`, `git diff --check`, and local review-link check. |
+| Full accessibility and connected buyer visit | NOT TESTED | No axe scan, screen-reader flow, zoom/forced-colors matrix, or live private-session visit in this revision. No WCAG conformance claim. |
