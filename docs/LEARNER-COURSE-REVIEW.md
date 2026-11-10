@@ -58,3 +58,5 @@ The lesson is now the first focal point instead of a large promotional cover. A 
 | Source safety | PASS | Lesson title and body are HTML-escaped; protected exercise sentences are absent from the static HTML and module. |
 | Automated checks | PASS | `npm test` (354), `node --check dist/course.mjs`, `git diff --check`, and `npm run check:review-links` (109 local targets). |
 | Full accessibility and connected buyer visit | NOT TESTED | No automated accessibility scanner, screen-reader pass, zoom/forced-colors matrix, or live private-session visit in this pass. No WCAG or connected-success claim. |
+
+The live unauthenticated entry was then reviewed and found too sparse. It now has the same workshop photography, editorial hierarchy, and clear purchase-entry action. Rendered local desktop and 390px views were inspected; the actual live route will be checked after publishing. The private exercise remains absent from that state.
