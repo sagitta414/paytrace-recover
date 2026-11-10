@@ -5,21 +5,35 @@ let current;
 
 function shell(s){
   const ready=s.verified&&!s.paymentHold;
-  const mode=s.mode==='sandbox'||s.sample===false?'PAYPAL SANDBOX':s.mode==='sample'?'FICTIONAL SAMPLE':'PURCHASE DEMO';
-  root.removeAttribute('role');
+  const mode=s.mode==='sandbox'||s.sample===false?'Sandbox purchase':s.mode==='sample'?'Fictional sample':'Purchase demo';
+  root.removeAttribute('role');root.removeAttribute('aria-live');
   root.innerHTML=`
-    <section class="hero" id="overview"><div class="frame hero-inner">
-      <div class="hero-copy"><span class="eyebrow">PHOTOGRAPHY WORKSHOP</span><h1>Look closer.<br>Make it yours.</h1><p>A practical first step in making photographs with more intention. Start with the light already around you.</p><a class="hero-link" href="#lesson">Go to your lesson <span aria-hidden="true">↘</span></a></div>
-      <figure class="hero-visual"><img src="assets/course/ceramic-still-life.webp" width="1600" height="2400" alt="Two ceramic vases in soft afternoon window light"><figcaption>THE LIGHT & STORY WORKSHOP</figcaption></figure>
-    </div></section>
-    <div class="frame course-frame"><div class="course-intro"><div><span class="eyebrow">YOUR CLASSROOM · ${mode}</span><h2>Welcome to Light & Story.</h2></div><p>Your purchase and lesson access are checked separately. Your first exercise is below.</p></div>
-      <section class="access-path" aria-label="Your access journey"><div class="path-heading"><span class="eyebrow">ACCESS STATUS</span><strong>${ready?'Your lesson is ready.':s.paymentHold?'Your purchase needs review.':'We’re checking your access.'}</strong></div><ol><li class="${s.paymentHold?'current':'done'}"><span class="path-number">01</span><span><strong>Purchase</strong><small>${s.paymentHold?'Needs review':'Recorded'}</small></span></li><li class="${ready?'done':'current'}"><span class="path-number">02</span><span><strong>Access</strong><small>${ready?'Verified':'Under review'}</small></span></li><li class="${ready?'current':'waiting'}"><span class="path-number">03</span><span><strong>Lesson</strong><small>${ready?'Ready to open':'Not open yet'}</small></span></li></ol></section>
-      <div class="content"><aside class="course-aside" aria-label="Course contents"><span class="eyebrow">COURSE CONTENTS</span><h2>The Light & Story Workshop</h2><p>Begin with one exercise in observing light, framing a familiar object, and noticing what changes.</p><div class="contents-row"><span>01</span><div><strong>Find your light</strong><small>${ready?'Ready to open':'Access pending'}</small></div></div><div class="support-card"><span class="eyebrow">NEED HELP?</span><p>${esc(s.next)}. You can follow the case or ask the merchant a question from your private page.</p><a href="customer.html">View your purchase <span aria-hidden="true">→</span></a><p class="meta">Case ${esc(s.caseId)} · ${esc(s.amount)}</p></div></aside>
-      <section id="lesson" aria-labelledby="lesson-heading"><div class="section-heading"><div><span class="eyebrow">LESSON 01</span><h2 id="lesson-heading">Find your light</h2></div><span class="pill ${ready?'ready':'locked'}">${ready?'Ready to open':'Access pending'}</span></div>
-        <article class="lesson-card"><img class="lesson-photo" src="assets/course/shadow-still-life.webp" width="1600" height="1067" alt="Warm window light casts the shadow of flowers and a vase on a wall"><div class="lesson-body"><span class="eyebrow">YOUR FIRST EXERCISE</span><h3>Start with what’s around you.</h3><p>One window. One familiar object. A new way to frame the story in front of you.</p><div class="state ${ready?'ready':''}" role="status"><strong>${ready?'Access verified — you can begin.':'This lesson is not open yet.'}</strong><span>${ready?'We’ll check your access again when you open the lesson.':'Your purchase may be complete, but access has not been verified. You do not need to pay again.'}</span></div>${ready?'<button class="action" id="open-lesson" type="button">Open lesson <span aria-hidden="true">→</span></button>':'<a class="action" href="customer.html">Check purchase progress <span aria-hidden="true">→</span></a>'}<div id="lesson-result" aria-live="polite"></div></div></article>
-      </section></div>
+    <div class="frame classroom" id="lesson">
+      <div class="classroom-top"><div><span class="eyebrow">THE LIGHT & STORY WORKSHOP</span><h1>Your classroom</h1><p>One practical exercise in seeing ordinary light differently.</p></div><a class="quiet-link" href="customer.html">View purchase & support <span aria-hidden="true">↗</span></a></div>
+      <div class="classroom-layout">
+        <aside class="course-rail" aria-label="Workshop navigation">
+          <div class="rail-title"><span class="eyebrow">COURSE GUIDE</span><strong>The Light & Story Workshop</strong></div>
+          <div class="rail-unit"><span class="unit-number">01</span><span><strong>Find your light</strong><small>${ready?'Available now':'Awaiting access'}</small></span><span aria-hidden="true">→</span></div>
+          <div class="rail-note"><span class="eyebrow">YOUR ACCESS</span><strong>${s.paymentHold?'Purchase under review':ready?'Lesson ready':'Access being checked'}</strong><p>${ready?'Your purchase and course access have been verified. We’ll check again when you open the lesson.':s.paymentHold?'Your purchase needs review before the lesson can open.':'Your purchase may be complete. We’re waiting for access to be verified; you do not need to buy it again.'}</p><a href="customer.html">See case progress <span aria-hidden="true">↗</span></a></div>
+          <p class="rail-meta">${esc(mode)} · Case ${esc(s.caseId)}</p>
+        </aside>
+        <div class="lesson-stage">
+          <div class="lesson-cover"><img src="assets/course/shadow-still-life.webp" width="1600" height="1067" alt="Window light casts the shadow of a vase and flowers across a wall"><div class="cover-label"><span>WORKSHOP / 01</span><strong>Find your light</strong></div></div>
+          <div class="lesson-panel"><div class="lesson-kicker"><span class="eyebrow">LESSON 01 · FIELD EXERCISE</span><span class="access-badge ${ready?'is-ready':'is-locked'}">${ready?'Ready to begin':'Access pending'}</span></div><h2>Start with the light<br>you already have.</h2><p class="lesson-lede">An everyday object becomes your subject. Notice what the light changes before you make the frame.</p>
+            <div class="lesson-action"><div><strong>${ready?'Your lesson is ready':'Full exercise locked'}</strong><span>${ready?'Open the lesson to begin the exercise.':'The full exercise opens only when this purchase has verified course access.'}</span></div>${ready?'<button class="action" id="open-lesson" type="button">Begin lesson <span aria-hidden="true">→</span></button>':'<a class="action" href="customer.html">Check access <span aria-hidden="true">→</span></a>'}</div>
+            <div id="lesson-result" aria-live="polite"></div>
+          </div>
+          <div class="lesson-bottom"><div><span class="eyebrow">ABOUT THIS WORKSHOP</span><p>A focused photography exercise about light, observation, and composition. The workshop currently has one available lesson.</p></div><a class="quiet-link" href="customer.html">Questions about access? <span aria-hidden="true">↗</span></a></div>
+        </div>
+      </div>
     </div>`;
   root.querySelector('#open-lesson')?.addEventListener('click',openLesson);
+}
+
+function lessonView(lesson){
+  const sentences=String(lesson.body||'').match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(x=>x.trim()).filter(Boolean)||[];
+  const steps=sentences.map((sentence,i)=>`<li><span class="exercise-number">${String(i+1).padStart(2,'0')}</span><p>${esc(sentence)}</p></li>`).join('');
+  return `<section class="opened-lesson" aria-labelledby="opened-heading"><div class="opened-head"><span class="eyebrow">YOUR EXERCISE</span><h3 id="opened-heading" tabindex="-1">${esc(lesson.title)}</h3><p>Take your time. You can return to this exercise whenever your access is active.</p></div><ol class="exercise-steps">${steps}</ol><div class="opened-foot"><strong>Look at what changed.</strong><p>Compare your frames and notice which direction of light best tells the story you wanted to show.</p></div></section>`;
 }
 
 async function openLesson(){
@@ -27,11 +41,15 @@ async function openLesson(){
   button.disabled=true;button.textContent='Opening your lesson…';
   try{
     const lesson=await request('/api/customer/lesson?caseId='+encodeURIComponent(current.caseId));
-    target.innerHTML=`<div class="lesson-content"><span class="eyebrow">YOUR LESSON IS OPEN</span><h4>${esc(lesson.title)}</h4><p>${esc(lesson.body)}</p><p class="meta">Protected lesson content opened for this private learner session.</p></div>`;
-    button.textContent='Lesson open';
-    if(lesson.browserChallenge&&crypto.subtle){try{const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(lesson.body)))).map(x=>x.toString(16).padStart(2,'0')).join('');await request('/api/customer/browser-proof',{caseId:current.caseId,token:lesson.browserChallenge,digest});}catch{target.insertAdjacentHTML('beforeend','<p class="meta">The lesson opened, but the separate browser receipt was not recorded.</p>');}}
+    target.innerHTML=lessonView(lesson);
+    button.remove();
+    root.querySelector('.lesson-action strong').textContent='Exercise open';
+    root.querySelector('.lesson-action div>span').textContent='Your first lesson is below.';
+    root.querySelector('.access-badge').textContent='Lesson open';
+    target.querySelector('#opened-heading')?.focus();
+    if(lesson.browserChallenge&&crypto.subtle){try{const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(lesson.body)))).map(x=>x.toString(16).padStart(2,'0')).join('');await request('/api/customer/browser-proof',{caseId:current.caseId,token:lesson.browserChallenge,digest});}catch{target.insertAdjacentHTML('beforeend','<p class="receipt-note">The lesson opened, but its separate browser receipt was not recorded.</p>');}}
   }catch(error){target.innerHTML=`<p class="error" role="alert">${esc(error.message)} <a href="customer.html">Check your private case</a> or try again.</p>`;button.disabled=false;button.textContent='Try opening the lesson';}
 }
 
-async function init(){try{current=await request('/api/customer/case');shell(current);}catch{root.removeAttribute('role');root.innerHTML='<div class="frame private-entry"><span class="eyebrow">LIGHT & STORY / PRIVATE LEARNER SPACE</span><h1>Your lesson is waiting for you.</h1><p>Open the private case link your merchant shared to see your purchase and lesson access here.</p><a class="action" href="customer.html">Find your purchase <span aria-hidden="true">→</span></a></div>';}}
+async function init(){try{current=await request('/api/customer/case');shell(current);}catch{root.removeAttribute('role');root.removeAttribute('aria-live');root.innerHTML='<div class="frame private-entry"><span class="eyebrow">LIGHT & STORY / PRIVATE CLASSROOM</span><h1>Welcome to the workshop.</h1><p>Your lesson is linked to your purchase. Open the private case link from the merchant to check your access and begin.</p><a class="action" href="customer.html">Find your purchase <span aria-hidden="true">→</span></a></div>';}}
 await init();

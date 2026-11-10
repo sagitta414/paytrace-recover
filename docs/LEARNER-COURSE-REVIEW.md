@@ -44,3 +44,17 @@ The course front door now uses real, credited photography and a calmer editorial
 | Photography | PASS | Two self-hosted WebP images, 384 KB combined, selected for recognizable light and shadow; source links and license are recorded in the visual brief and credits appear in the footer. |
 | Automated checks | PASS | `npm test` (354 tests), `node --check dist/course.mjs`, `git diff --check`, and `npm run check:review-links` (109 targets). |
 | Full accessibility and connected buyer visit | NOT TESTED | Automated scan, screen-reader flow, zoom/forced-colors matrix, and a live connected private-session visit were not completed. No WCAG or connected-success claim. |
+
+## Classroom experience pass · 2026-11-10
+
+The lesson is now the first focal point instead of a large promotional cover. A single course guide shows the actual lesson and access state; on narrow screens it moves below the lesson. Opening the protected lesson turns its returned exercise into a numbered reading flow. The browser receipt remains an internal evidence event rather than learner-facing completion copy.
+
+| Check | Result | Evidence / limit |
+| --- | --- | --- |
+| Desktop composition | PASS | Rendered local desktop view in Codex in-app browser: lesson cover, action, and access guide form a clear reading hierarchy. |
+| Mobile composition | PASS for tested sizes | Rendered locked state at 390px and 320px. The lesson comes before the guide; text and primary action remain legible. |
+| Locked state | PASS | Local fixture exposed no protected exercise body and offered a purchase-progress action. |
+| Ready/open state | PASS | Local fixture opened the protected lesson response and displayed three exercise steps; this was a UI fixture, not connected course-service proof. |
+| Source safety | PASS | Lesson title and body are HTML-escaped; protected exercise sentences are absent from the static HTML and module. |
+| Automated checks | PASS | `npm test` (354), `node --check dist/course.mjs`, `git diff --check`, and `npm run check:review-links` (109 local targets). |
+| Full accessibility and connected buyer visit | NOT TESTED | No automated accessibility scanner, screen-reader pass, zoom/forced-colors matrix, or live private-session visit in this pass. No WCAG or connected-success claim. |
