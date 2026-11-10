@@ -51,5 +51,24 @@ async function openLesson(){
   }catch(error){target.innerHTML=`<p class="error" role="alert">${esc(error.message)} <a href="customer.html">Check your private case</a> or try again.</p>`;button.disabled=false;button.textContent='Try opening the lesson';}
 }
 
-async function init(){try{current=await request('/api/customer/case');shell(current);}catch{root.removeAttribute('role');root.removeAttribute('aria-live');root.innerHTML='<div class="frame private-entry" id="lesson"><div class="entry-copy"><span class="eyebrow">ONE-LESSON PHOTOGRAPHY WORKSHOP</span><h1>See the light in everyday things.</h1><p>The Light & Story Workshop starts with a simple exercise in observation and composition. Find a familiar subject, then see how light changes the story you can tell.</p><div class="entry-action"><a class="action" href="customer.html">Open your purchase <span aria-hidden="true">→</span></a><span>Your private purchase link is needed to open the lesson.</span></div></div><figure class="entry-photo"><img src="assets/course/shadow-still-life.webp" width="1600" height="1067" alt="Warm window light casts a vase and flower shadow across a wall"><figcaption>THE LIGHT & STORY WORKSHOP · LESSON 01</figcaption></figure></div>';}}
+async function init(){
+  try{current=await request('/api/customer/case');shell(current);}
+  catch{
+    root.removeAttribute('role');root.removeAttribute('aria-live');
+    root.innerHTML=`
+      <section class="studio-entry" id="lesson" aria-labelledby="studio-heading">
+        <div class="frame studio-topline"><span>LIGHT & STORY / THE WORKSHOP</span><span>AN EXERCISE IN SEEING</span></div>
+        <div class="frame studio-main">
+          <div class="studio-copy">
+            <span class="studio-mark"><span aria-hidden="true"></span> A PHOTOGRAPHY WORKSHOP</span>
+            <h1 id="studio-heading">Notice the light.<br><em>Find the story.</em></h1>
+            <p>Photography begins with attention. Start with one familiar subject and discover how light can change the way you see it.</p>
+            <div class="studio-actions"><a class="action studio-action" href="customer.html">Open your purchase <span aria-hidden="true">↗</span></a><span>Your private purchase link opens the lesson.</span></div>
+          </div>
+          <figure class="studio-visual"><div class="studio-image-window"><img src="assets/course/shadow-still-life.webp" width="1600" height="1067" alt="Golden window light casts a vase and flower shadow across a wall"></div><figcaption><span>STUDY 01 / NATURAL LIGHT</span><span>THE LIGHT & STORY WORKSHOP</span></figcaption></figure>
+        </div>
+        <div class="frame studio-bottom"><span>ONE LESSON. A NEW WAY TO SEE.</span><span>OBSERVE <b aria-hidden="true">/</b> FRAME <b aria-hidden="true">/</b> COMPARE</span></div>
+      </section>`;
+  }
+}
 await init();

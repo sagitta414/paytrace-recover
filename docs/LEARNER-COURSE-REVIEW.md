@@ -60,3 +60,15 @@ The lesson is now the first focal point instead of a large promotional cover. A 
 | Full accessibility and connected buyer visit | NOT TESTED | No automated accessibility scanner, screen-reader pass, zoom/forced-colors matrix, or live private-session visit in this pass. No WCAG or connected-success claim. |
 
 The live unauthenticated entry was then reviewed and found too sparse. It now has the same workshop photography, editorial hierarchy, and clear purchase-entry action. Rendered local desktop and 390px views were inspected; the actual live route will be checked after publishing. The private exercise remains absent from that state.
+
+## Premier studio pass · 2026-11-10
+
+The public course entry now behaves like a focused photography studio cover: a dark palette, expressive serif headline, real window-light image, and a clear purchase-entry action. One-time image/copy reveals and a brief light sweep draw attention to the subject; hover responds without moving the layout. The private classroom keeps the same lesson and entitlement boundaries, with only a restrained cover reveal added.
+
+| Check | Result | Evidence / limit |
+| --- | --- | --- |
+| Public desktop and mobile composition | PASS for tested sizes | Rendered local in-app browser at desktop, 390px, and 320px. Headline, subject image, action, footer, and mobile reading order were inspected. |
+| Private ready/open flow | PASS with fixture | Local ready-state fixture opened the protected lesson response; its content was not embedded in the static page. Fixture data is not connected proof. |
+| Motion and reduced motion | PASS in source; manual preference check NOT TESTED | Animations are limited to one-time reveals and visitor hover; the CSS reduced-motion rule removes them. A system preference toggle was not exercised in-browser. |
+| Text contrast | PASS for sampled pairs | Calculated 14.89:1 for ivory on forest, 9.75:1 for gold on forest, and 10.48:1 for dark action text on gold. Image-adjacent text sits on the solid dark surface. |
+| Accessibility audit | NOT TESTED | No automated scanner, screen-reader pass, zoom/forced-colors matrix, or live private-session visit in this pass. No WCAG conformance claim. |
