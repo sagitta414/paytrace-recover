@@ -72,3 +72,16 @@ The public course entry now behaves like a focused photography studio cover: a d
 | Motion and reduced motion | PASS in source; manual preference check NOT TESTED | Animations are limited to one-time reveals and visitor hover; the CSS reduced-motion rule removes them. A system preference toggle was not exercised in-browser. |
 | Text contrast | PASS for sampled pairs | Calculated 14.89:1 for ivory on forest, 9.75:1 for gold on forest, and 10.48:1 for dark action text on gold. Image-adjacent text sits on the solid dark surface. |
 | Accessibility audit | NOT TESTED | No automated scanner, screen-reader pass, zoom/forced-colors matrix, or live private-session visit in this pass. No WCAG conformance claim. |
+
+## Editorial realism revision · 2026-11-10
+
+The public course page was revised after feedback that the dark hero and animated light effect felt artificial. It now presents the actual one-lesson workshop as a course: a quiet masthead, a licensed photograph of a photographer at work, a short overview, a single lesson preview, and a clear private-purchase route. The private classroom copy follows the same editorial language. No payment, entitlement, or protected-lesson request logic changed.
+
+| Check | Result | Evidence / limit |
+| --- | --- | --- |
+| Identity, hierarchy, composition, typography, imagery, craft | PASS for tested public view | Inspected rendered public desktop and 390px mobile views in the Codex in-app browser. The title, course purpose, purchase action, real photograph, and single lesson now form a clear reading order. Initial oversized image was fixed and recaptured. |
+| Mobile | PASS at 390px | The public page reflows to a single column with readable navigation, title, action, and photo. |
+| Public metadata and image loading | PASS locally | Title and description match the revised course page; self-hosted photos loaded in the local browser. |
+| Automated behavior | PASS | `npm test` (354 passing), `node --check dist/course.mjs`, and `git diff --check`. |
+| Private ready/open and locked visual states | NOT TESTED in this revision | Content copy changed but no fixture browser pass was run for private states. Earlier fixture results are recorded above. |
+| Full accessibility and connected buyer visit | NOT TESTED | No axe scan, screen-reader flow, zoom/forced-colors matrix, or live private-session visit in this revision. No WCAG or connected-success claim. |
