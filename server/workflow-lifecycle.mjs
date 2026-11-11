@@ -1,4 +1,5 @@
 import {record} from '../dist/core.mjs';
+import {rememberWorkflowRun} from './workflow-history.mjs';
 
 export function workflowTimeout(env={}){
  const seconds=env.WORKFLOW_TIMEOUT_SECONDS===undefined?900:Number(env.WORKFLOW_TIMEOUT_SECONDS);
@@ -16,6 +17,7 @@ export function expireWorkflow(s,{now=Date.now(),timeoutMs=900000}={}){
  const cutoff=Number.isFinite(deadline)?deadline:Number.isFinite(started)?started+timeoutMs:now;
  if(now<cutoff)return false;
  s.job={...s.job,pending:false,expiredAt:new Date(now).toISOString(),error:'Workflow timed out. Refresh the evidence before continuing.'};
+ rememberWorkflowRun(s,new Date(now).toISOString());
  s.proof=null;
  if(s.writes)s.phase='unverified';
  else{s.review=null;s.analysis=null;s.rehearsal=null;s.approval=null;s.phase='needs-evidence';}

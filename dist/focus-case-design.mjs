@@ -4,6 +4,7 @@ import {caseReplayMarkup} from './focus-case-replay.mjs';
 import {caseOrigin} from './focus-model.mjs';
 import {sandboxScenario} from './sandbox-scenarios.mjs';
 import {purchaseFactsMarkup,agentConsensusMarkup,outcomeProofMarkup} from './focus-case-proof.mjs';
+import {recoveryTrailMarkup,mountRecoveryTrail} from './focus-recovery-trail.mjs';
 
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -78,6 +79,7 @@ export function arrangeCase(root,s){
 export function finishCaseLayout(root,s,{uncertain=false,backend=false}={}){
  const sheet=root.querySelector('.case-redesign'),main=sheet?.querySelector('.case-evidence-column'),layout=sheet?.querySelector('.case-layout'),communication=sheet?.querySelector('.case-communication-area');
  if(!main||!layout||!communication||!s)return;
+ layout.insertAdjacentHTML('beforebegin',recoveryTrailMarkup(s,{uncertain}));
  const facts=document.createElement('section');facts.className='case-first-look';facts.setAttribute('aria-label','Three purchase facts');
  facts.innerHTML=purchaseFactsMarkup(s,{uncertain});
  const heading=main.querySelector('.case-column-title');
@@ -134,7 +136,7 @@ export function finishCaseLayout(root,s,{uncertain=false,backend=false}={}){
  }
  const groupNodes=[];
  for(const [number,label,description,open,selectors] of groups){
-  const group=document.createElement('details');group.className='case-record-group';group.open=open;
+  const group=document.createElement('details');group.className='case-record-group';group.dataset.recordGroup=number;group.id=`case-record-${number}`;group.open=open;
   const heading=document.createElement('summary');heading.innerHTML=`<span class="case-record-number">${number}</span><span class="case-record-label"><strong>${label}</strong><small>${description}</small></span><span class="case-record-chevron" aria-hidden="true"></span>`;
   group.append(heading);
   for(const selector of selectors.split(','))for(const child of [...deep.children])if(child!==title&&child!==dossier&&child.matches(selector))group.append(child);
@@ -164,4 +166,5 @@ export function finishCaseLayout(root,s,{uncertain=false,backend=false}={}){
  root.querySelector('.case-wayfinding a[href="#case-deep-evidence"]')?.addEventListener('click',()=>{deep.open=true;});
  root.querySelector('.case-wayfinding a[href="#case-update-plan"]')?.addEventListener('click',()=>{const update=root.querySelector('.case-update-dock');if(update)update.open=true;});
  root.querySelectorAll('[data-open-case-evidence]').forEach(link=>link.addEventListener('click',()=>{deep.open=true;const first=deep.querySelector('.case-record-group');if(first)first.open=true;}));
+ mountRecoveryTrail(root,s,{uncertain});
 }
