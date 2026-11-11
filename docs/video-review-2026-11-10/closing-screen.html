@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PayTrace Recover closing screen</title>
+<!--
+  1920x1080 end card for the demo video.
+  Open normally to watch the animation. Append ?t=<seconds> to freeze a frame
+  for capture (render-closing-screen.sh uses this to export the MP4).
+-->
+<style>
+  :root { --t: 0; --navy: #050f2c; --deep: #003087; --blue: #0070e0; --sky: #70cfff; --mint: #7ef0c1; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: var(--navy); overflow: hidden; }
+  body { font-family: Manrope, "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+
+  .stage { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden; background: var(--navy); }
+
+  /* Every animated element sets --d (its start time) and runs once. */
+  .a { animation-duration: var(--dur, .9s); animation-delay: var(--d, 0s); animation-fill-mode: both; animation-timing-function: cubic-bezier(.2, .7, .2, 1); }
+  .frozen .a { animation-play-state: paused; animation-delay: calc(var(--d, 0s) - var(--t) * 1s); }
+
+  @keyframes rise  { from { opacity: 0; transform: translateY(34px); } to { opacity: 1; transform: none; } }
+  @keyframes fade  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pop   { 0% { opacity: 0; transform: scale(.4); } 70% { opacity: 1; transform: scale(1.12); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes draw  { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes driftA { from { transform: translate(0, 0) scale(1); } to { transform: translate(120px, 70px) scale(1.12); } }
+  @keyframes driftB { from { transform: translate(0, 0) scale(1.05); } to { transform: translate(-140px, -60px) scale(.95); } }
+  @keyframes driftC { from { transform: translate(0, 0); } to { transform: translate(60px, -90px); } }
+  @keyframes sweep { from { transform: translateX(-120%); } to { transform: translateX(320%); } }
+
+  /* Background: mesh glow, grid, grain */
+  .glow { position: absolute; border-radius: 50%; filter: blur(110px); animation-timing-function: linear; --dur: 12s; }
+  .g1 { width: 980px; height: 980px; left: -260px; top: -380px; background: radial-gradient(circle, #1456d8 0%, rgba(20, 86, 216, 0) 68%); animation-name: driftA; opacity: .95; }
+  .g2 { width: 900px; height: 900px; right: -200px; bottom: -420px; background: radial-gradient(circle, #19b8ff 0%, rgba(25, 184, 255, 0) 66%); animation-name: driftB; opacity: .55; }
+  .g3 { width: 620px; height: 620px; right: 300px; top: -240px; background: radial-gradient(circle, #6a4bff 0%, rgba(106, 75, 255, 0) 68%); animation-name: driftC; opacity: .5; }
+  .g4 { width: 520px; height: 520px; left: 420px; bottom: -300px; background: radial-gradient(circle, #19d3a2 0%, rgba(25, 211, 162, 0) 68%); animation-name: driftC; opacity: .28; }
+
+  .grid { position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255, 255, 255, .055) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .055) 1px, transparent 1px);
+    background-size: 60px 60px;
+    -webkit-mask-image: radial-gradient(ellipse 75% 80% at 68% 45%, #000 0%, transparent 75%);
+            mask-image: radial-gradient(ellipse 75% 80% at 68% 45%, #000 0%, transparent 75%); }
+  .vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(2, 6, 22, .72) 100%); }
+  .grain { position: absolute; inset: 0; opacity: .09; mix-blend-mode: overlay; }
+
+  .trace { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+  .trace path { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; animation-name: draw; }
+
+  /* Left column */
+  .brand { position: absolute; left: 120px; top: 104px; display: flex; align-items: center; gap: 20px; animation-name: fade; --d: .2s; }
+  .brand svg { width: 68px; height: 68px; filter: drop-shadow(0 10px 28px rgba(0, 112, 224, .6)); }
+  .brand span { font-size: 36px; font-weight: 800; letter-spacing: -.02em; }
+  .brand b { color: var(--sky); font-weight: 800; }
+
+  .eyebrow { position: absolute; left: 120px; top: 292px; font-size: 21px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; color: var(--sky); animation-name: rise; --d: .45s; }
+  h1 { position: absolute; left: 116px; top: 338px; font-size: 124px; line-height: 1.02; font-weight: 800; letter-spacing: -.045em; }
+  h1 span { display: block; animation-name: rise; }
+  h1 .l1 { --d: .6s; }
+  h1 .l2 { --d: .85s; background: linear-gradient(92deg, #70cfff 0%, #8fe9ff 38%, #7ef0c1 100%); -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: 14px; }
+
+  .steps { position: absolute; left: 120px; top: 640px; display: flex; align-items: center; gap: 18px; font-size: 29px; font-weight: 600; color: #d5e4ff; animation-name: rise; --d: 1.25s; }
+  .steps i { width: 34px; height: 2px; background: linear-gradient(90deg, rgba(112, 207, 255, .2), var(--sky)); border-radius: 2px; }
+
+  .links { position: absolute; left: 120px; top: 760px; display: grid; gap: 16px; }
+  .link { display: flex; align-items: center; gap: 18px; padding: 16px 28px 16px 18px; border-radius: 18px; width: max-content;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .11), rgba(255, 255, 255, .04)); border: 1px solid rgba(255, 255, 255, .2);
+    box-shadow: 0 18px 44px rgba(0, 8, 40, .4), inset 0 1px 0 rgba(255, 255, 255, .16); animation-name: rise; }
+  .link:nth-child(1) { --d: 3.9s; } .link:nth-child(2) { --d: 4.1s; }
+  .link em { font-style: normal; font-size: 16px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #06225e; background: var(--sky); border-radius: 10px; padding: 8px 12px; min-width: 104px; text-align: center; }
+  .link strong { font-size: 27px; font-weight: 600; letter-spacing: -.005em; }
+
+  /* Right column: saved-proof card */
+  .card { position: absolute; right: 120px; top: 196px; width: 600px; padding: 38px 40px 34px; border-radius: 34px; overflow: hidden;
+    background: linear-gradient(160deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .045) 55%); border: 1px solid rgba(255, 255, 255, .24);
+    box-shadow: 0 50px 120px rgba(0, 6, 34, .62), inset 0 1px 0 rgba(255, 255, 255, .28);
+    -webkit-backdrop-filter: blur(26px); backdrop-filter: blur(26px); animation-name: rise; --d: 1.6s; }
+  .card::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .13), transparent); animation: sweep 1.6s 4.4s both ease-in-out; }
+  .frozen .card::after { animation-play-state: paused; animation-delay: calc(4.4s - var(--t) * 1s); }
+  .card header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 26px; border-bottom: 1px solid rgba(255, 255, 255, .16); }
+  .card small { display: block; font-size: 16px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; color: var(--sky); }
+  .card h2 { margin-top: 10px; font-size: 37px; line-height: 1.12; font-weight: 800; letter-spacing: -.025em; }
+  .score { font-size: 78px; line-height: .9; font-weight: 800; letter-spacing: -.05em; color: var(--mint); white-space: nowrap; }
+  .score sub { font-size: 32px; vertical-align: baseline; color: #b8cdf5; font-weight: 700; letter-spacing: 0; }
+  .card ul { list-style: none; padding: 16px 0 0; }
+  .card li { display: flex; align-items: center; gap: 20px; padding: 13px 0; font-size: 28px; font-weight: 600; }
+  .card li span { margin-left: auto; font-size: 17px; font-weight: 600; color: #a9c0ee; }
+  .tick { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(145deg, #a5f7d6, #33d6a0); box-shadow: 0 0 0 6px rgba(126, 240, 193, .13), 0 8px 22px rgba(51, 214, 160, .45); animation-name: pop; --dur: .5s; }
+  .tick svg { width: 21px; height: 21px; }
+  .card li:nth-child(1) .tick { --d: 2.15s; } .card li:nth-child(2) .tick { --d: 2.4s; } .card li:nth-child(3) .tick { --d: 2.65s; }
+  .card li:nth-child(4) .tick { --d: 2.9s; } .card li:nth-child(5) .tick { --d: 3.15s; } .card li:nth-child(6) .tick { --d: 3.4s; }
+  .card footer { margin-top: 16px; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .16); font-size: 20px; line-height: 1.4; color: #c5d6f7; }
+  .card footer b { color: #fff; font-weight: 700; }
+
+  .legal { position: absolute; left: 120px; right: 120px; bottom: 50px; display: flex; justify-content: space-between; font-size: 19px; color: #9db2de; animation-name: fade; --d: 4.5s; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="glow g1 a"></div><div class="glow g2 a"></div><div class="glow g3 a"></div><div class="glow g4 a"></div>
+  <div class="grid"></div>
+
+  <!-- The trace: runs from the tagline to the proof card and resolves in a check. -->
+  <svg class="trace" viewBox="0 0 1920 1080" aria-hidden="true">
+    <defs>
+      <linearGradient id="tr" x1="0" x2="1"><stop offset="0" stop-color="#70cfff" stop-opacity="0"/><stop offset=".25" stop-color="#70cfff"/><stop offset="1" stop-color="#7ef0c1"/></linearGradient>
+      <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="9"/></filter>
+    </defs>
+    <path class="a" style="--d:1s;--dur:1.9s" pathLength="1" stroke="url(#tr)" stroke-width="10" opacity=".45" filter="url(#soft)" d="M-40 962 C 380 962, 800 992, 960 850 S 1130 150, 1500 110 S 1880 60, 1980 30"/>
+    <path class="a" style="--d:1s;--dur:1.9s" pathLength="1" stroke="url(#tr)" stroke-width="3" d="M-40 962 C 380 962, 800 992, 960 850 S 1130 150, 1500 110 S 1880 60, 1980 30"/>
+  </svg>
+
+  <svg class="grain" width="1920" height="1080" aria-hidden="true"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .9 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>
+  <div class="vignette"></div>
+
+  <div class="brand a">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="lg" x2="1" y2="1"><stop stop-color="#003087"/><stop offset="1" stop-color="#0070e0"/></linearGradient></defs><rect width="64" height="64" rx="18" fill="url(#lg)"/><path d="M18 45V22a5 5 0 0 1 5-5h12a11 11 0 0 1 0 22H18" fill="none" stroke="#70cfff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="m31 43 7 7 14-17" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>PayTrace <b>Recover</b></span>
+  </div>
+
+  <p class="eyebrow a">Paid. Locked out. Back in.</p>
+  <h1><span class="l1 a">Recover access.</span><span class="l2 a">Keep the proof.</span></h1>
+
+  <p class="steps a">Payment evidence <i></i> Merchant approval <i></i> Verified outcome</p>
+
+  <div class="links">
+    <div class="link a"><em>Try it</em><strong>paytrace-recover-sagitta.azurewebsites.net</strong></div>
+    <div class="link a"><em>Source</em><strong>github.com/sagitta414/paytrace-recover</strong></div>
+  </div>
+
+  <section class="card a">
+    <header>
+      <div><small>Saved run · Nov 8, 2026</small><h2>Connected<br>sandbox proof</h2></div>
+      <div class="score">6<sub>/6</sub></div>
+    </header>
+    <ul>
+      <li><i class="tick a"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#063b2a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i>PayPal payment<span>sandbox capture reread</span></li>
+      <li><i class="tick a"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#063b2a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Course access<span>separate service</span></li>
+      <li><i class="tick a"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#063b2a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i>AI specialists<span>cited model review</span></li>
+      <li><i class="tick a"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#063b2a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Merchant decision<span>exact preview approved</span></li>
+      <li><i class="tick a"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#063b2a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Render recovery<span>one grant, then verify</span></li>
+      <li><i class="tick a"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#063b2a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Protected lesson<span>content returned</span></li>
+    </ul>
+    <footer><b>Customer confirmation</b> is recorded separately from technical proof.</footer>
+  </section>
+
+  <div class="legal a"><span>Sandbox prototype. No live money moved.</span><span>Shown with a labeled fictional sample and saved connected-sandbox evidence.</span></div>
+</div>
+<script>
+  const stage = document.getElementById('stage');
+  const t = new URLSearchParams(location.search).get('t');
+  if (t !== null) {
+    document.documentElement.classList.add('frozen');
+    document.documentElement.style.setProperty('--t', Number(t) || 0);
+  }
+  const fit = () => {
+    const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
+  };
+  addEventListener('resize', fit); fit();
+</script>
+</body>
+</html>

@@ -37,7 +37,7 @@ Codex helped build the merchant and customer flows, integrate and compare fronte
 
 ## Architecture
 
-The Node 24 PayTrace app runs on Azure App Service with SQLite for its single-instance sandbox demonstration. A separate Azure App Service hosts the reference course service and owns its entitlement database. The server keeps PayPal and Azure OpenAI credentials private. Render Workflow task definitions are in the repository for staged investigation and recovery. Isolated fictional investigation and merchant-approved recovery runs completed with model-backed consultation and a local lesson proof; a PayPal-connected recovery run remains untested. Optional encrypted Azure Blob backup copying is implemented but not configured. This architecture is a sandbox prototype, not a production multi-merchant deployment.
+The Node 24 PayTrace app runs on Azure App Service with SQLite for its single-instance sandbox demonstration. A separate Azure App Service hosts the reference course service and owns its entitlement database. The server keeps PayPal and Azure OpenAI credentials private. Render Workflow task definitions are in the repository for staged investigation and recovery. Isolated fictional investigation and merchant-approved recovery runs completed with model-backed consultation and a local lesson proof. On 2026-11-08 a PayPal sandbox purchase completed a connected recovery on the hosted app; its run report recorded all six connected checks, including the Render recovery run and the protected lesson. Optional encrypted Azure Blob backup copying is implemented but not configured. This architecture is a sandbox prototype, not a production multi-merchant deployment.
 
 ## Testing Instructions
 
@@ -55,11 +55,11 @@ https://paytrace-recover-sagitta.azurewebsites.net/judge.html
 
 https://github.com/sagitta414/paytrace-recover
 
-The feature and security-fix [PR #3](https://github.com/sagitta414/paytrace-recover/pull/3) was merged into public `main` as commit `6850345`. The later `2409dec` simplification and `b6904d0` case/customer clarity updates are deployed to the Azure sandbox demo. `/health` and the changed public page assets returned HTTP 200 after the latest deployment. An earlier SQLite database integrity failure was repaired into a separate checked copy; managed storage remains a pilot requirement. The complete PayPal-connected recovery has not been recorded.
+The feature and security-fix [PR #3](https://github.com/sagitta414/paytrace-recover/pull/3) was merged into public `main` as commit `6850345`. The later `2409dec` simplification and `b6904d0` case/customer clarity updates are deployed to the Azure sandbox demo. `/health` and the changed public page assets returned HTTP 200 after the latest deployment. An earlier SQLite database integrity failure was repaired into a separate checked copy; managed storage remains a pilot requirement. The 2026-11-08 connected sandbox recovery is shown in the demo video; its redacted run report is not yet saved in this repository.
 
 ## Demo Video
 
-TODO: Record a video under three minutes, upload it publicly to YouTube, and put its URL in the submission form. Show the product functioning in a browser. Suggested sequence: buyer sees a locked lesson after payment; merchant opens the case and checks PayPal/course evidence; four specialists explain their recommendation; merchant approves one narrow grant; protected lesson opens; customer sees the update and confirms. Show the run report's connected/demo labels and avoid implying Render ran until a real Workflow run is captured. Use only media and marks you have permission to include.
+TODO: A 2:19 cut is recorded but not uploaded. Finalize it using the [video review](docs/video-review-2026-11-10/VIDEO_REVIEW_2026-11-10.md), upload it publicly to YouTube, and put its URL in the submission form. Show the product functioning in a browser. Suggested sequence: buyer sees a locked lesson after payment; merchant opens the case and checks PayPal/course evidence; four specialists explain their recommendation; merchant approves one narrow grant; protected lesson opens; customer sees the update and confirms. Show the run report's connected/demo labels and avoid implying Render ran until a real Workflow run is captured. Use only media and marks you have permission to include.
 
 ## Screenshot Shot List
 
@@ -71,12 +71,12 @@ TODO: Record a video under three minutes, upload it publicly to YouTube, and put
 
 ## Submission Readiness Notes
 
-The code-level security fixes passed CI and are merged into public `main`. The paired Azure apps were updated on 2026-11-02. On November 4, the PayTrace database failed integrity checking and caused `/health` to return 503. A separate SQLite rebuild passed integrity checking and matched row counts in all 39 application tables; Azure now uses that copy. The `b6904d0` UX deployment passed its health and changed-asset checks. These checks do not prove that a complete connected recovery works. Save a redacted run report and Render run IDs only after an actual checkout-to-lesson acceptance run.
+The code-level security fixes passed CI and are merged into public `main`. The paired Azure apps were updated on 2026-11-02. On November 4, the PayTrace database failed integrity checking and caused `/health` to return 503. A separate SQLite rebuild passed integrity checking and matched row counts in all 39 application tables; Azure now uses that copy. The `b6904d0` UX deployment passed its health and changed-asset checks. These checks do not prove that a complete connected recovery works. The connected run on 2026-11-08 reported 6/6 connected checks. Save its redacted run report and Render run IDs with the filled acceptance record before submitting.
 
 ## Known Limitations
 
-- Isolated fictional Render `investigate` and merchant-approved `recover` runs completed; no PayPal-connected acceptance has been recorded.
-- A complete PayPal sandbox buyer checkout, recovery, and protected-lesson acceptance run is still pending.
+- One PayPal-connected sandbox recovery completed on 2026-11-08 with 6/6 connected checks in its run report. It is a single run. The filled acceptance record, the `npm run acceptance:check` result, and the redacted report are not yet saved in this repository.
+- On 2026-11-10 a fresh browser session of the hosted workspace showed no cases and "Full end-to-end proof pending." A judge sees connected proof only after running their own sandbox checkout.
 - The encrypted backup restore probe passed locally on Azure App Service storage; independent off-site copy and remote restore drill are pending.
 - Current all-files coverage is about 87% lines and 82% branches, below the 90% review target.
 - The public merchant workspace is a sandbox demo; verified merchant OIDC and a commercial LMS integration are not configured.
@@ -84,4 +84,4 @@ The code-level security fixes passed CI and are merged into public `main`. The p
 
 ## Official Submission Check
 
-The [event overview](https://paypalaihackathon.devpost.com/) and [official rules](https://paypalaihackathon.devpost.com/rules) list a deadline of **November 12, 2026 at 12:00 p.m. Pacific**. The entry needs a functional demo or complete local run instructions, a public open-source repository with source and license, a text description explaining features and tools, and a public YouTube demo video under three minutes. This repository has an MIT `LICENSE`, source, and local run instructions; the hosted demo is live. The video and complete connected recovery recording are still outstanding. Confirm the form's exact fields, team information, and any sponsor-specific requirements in Devpost before submitting. This is a draft, not a submitted entry.
+The [event overview](https://paypalaihackathon.devpost.com/) and [official rules](https://paypalaihackathon.devpost.com/rules) list a deadline of **November 12, 2026 at 12:00 p.m. Pacific**. The entry needs a functional demo or complete local run instructions, a public open-source repository with source and license, a text description explaining features and tools, and a public YouTube demo video under three minutes. This repository has an MIT `LICENSE`, source, and local run instructions; the hosted demo is live. The video is recorded but not yet uploaded to YouTube. Confirm the form's exact fields, team information, and any sponsor-specific requirements in Devpost before submitting. This is a draft, not a submitted entry.

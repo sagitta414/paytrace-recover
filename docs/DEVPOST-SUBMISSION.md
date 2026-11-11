@@ -32,7 +32,7 @@ Optional Render Workflows separate investigation and recovery stages. Optional e
 
 Payment success, an access write and customer satisfaction are different events. We needed to prevent duplicate corrections, invalidate stale approvals, hold mismatched identities and avoid presenting old passing checks as current proof. We also needed a clear boundary between scripted samples, configured integrations and completed connected recovery.
 
-An earlier Azure database health failure required a preserved-copy repair. Current route and health checks demonstrate availability, while a completed PayPal buyer-to-lesson recovery remains to be recorded.
+An earlier Azure database health failure required a preserved-copy repair. Route and health checks then demonstrated availability, and on 2026-11-08 a PayPal sandbox buyer-to-lesson recovery completed with all six connected checks in its run report.
 
 ## Accomplishments
 
@@ -44,14 +44,14 @@ The hard part is knowing when evidence is sufficient to act and when it is not. 
 
 ## What's next
 
-Complete recorded sandbox acceptance, restore healthy hosting, validate identity and email with configured providers, and test the simplest merchant flow with unfamiliar users. Validate a commercial course-platform adapter before claiming support for it.
+Repeat the connected sandbox acceptance with saved redacted evidence, validate identity and email with configured providers, and test the simplest merchant flow with unfamiliar users. Validate a commercial course-platform adapter before claiming support for it.
 
 ## Tools disclosure
 
 - PayPal Developer Platform: sandbox checkout/capture, authoritative reads and verified webhook triggers. Shared-account reporting discovery is paused until purchases can be scoped to one merchant.
-- AI Responses API: specialist findings, challenge/response reviews and read-only follow-ups. Enter the actual provider/model deployment used in the recorded run in Devpost; scripts are not model execution.
+- AI Responses API: specialist findings, challenge/response reviews and read-only follow-ups. Enter the actual provider/model deployment used in the recorded run in Devpost; scripts are not model execution. The 2026-11-08 run report shows `gpt-4o-mini`.
 - Azure: App Service hosting, Azure OpenAI specialist runtime and Application Insights traces. A passing health check is not connected recovery proof.
-- Render: optional task integration. Describe it as executed only when a saved run proves it.
+- Render: optional task integration. Describe it as executed only when a saved run proves it. The 2026-11-08 run report records the Render recovery stage as connected.
 - Node.js 24, JavaScript, HTML/CSS, SQLite and JOSE: application, persistence and token verification. Optional Resend provides notifications.
 - OpenAI Codex assisted with code, tests and documentation; maintainers review the result and evidence.
 
@@ -62,8 +62,8 @@ Do not list sponsor tools that are not integrated. Never include production cred
 - Source: https://github.com/sagitta414/paytrace-recover
 - Judge instructions: [README](../README.md) and [judge testing](JUDGE-TESTING.md).
 - Hosted sandbox demo: https://paytrace-recover-sagitta.azurewebsites.net/judge.html (recheck health before recording or submitting).
-- YouTube: enter the real Public video URL after recording/upload. This task has not created or uploaded a video.
+- YouTube: enter the real Public video URL after recording/upload. A 2:19 cut exists locally and is not yet uploaded.
 
 ## Testing disclosure
 
-The walkthrough uses fictional records and scripted specialists. The working Node backend and provider adapters exist. Local/mocked tests do not establish external acceptance. Update the [integration status](INTEGRATION-STATUS.md) after actual connected tests; do not replace missing results with claims.
+The walkthrough uses fictional records and scripted specialists. The working Node backend and provider adapters exist. Local/mocked tests do not establish external acceptance. One connected PayPal sandbox recovery completed on 2026-11-08 with 6/6 connected checks; it is a single run, not repeated acceptance. Update the [integration status](INTEGRATION-STATUS.md) after actual connected tests; do not replace missing results with claims.
